@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Autentificare — Agent BIM Romania</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0B1629 0%, #0F2348 60%, #162B55 100%);
+    }
+
+    .login-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 48px 44px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45);
+    }
+
+    /* ── Brand ── */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .brand-icon {
+      flex-shrink: 0;
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0F172A;
+      line-height: 1.2;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 2px;
+    }
+
+    /* ── Heading ── */
+    .login-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 6px;
+    }
+    .login-sub {
+      font-size: 13px;
+      color: #64748B;
+      margin-bottom: 28px;
+    }
+
+    /* ── Fields ── */
+    .field {
+      margin-bottom: 18px;
+    }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-icon {
+      position: absolute;
+      left: 13px; top: 50%; transform: translateY(-50%);
+      color: #94A3B8;
+      pointer-events: none;
+      display: flex;
+    }
+    .field input {
+      width: 100%;
+      padding: 11px 42px 11px 40px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #0F172A;
+      background: #F8FAFC;
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: #2563EB;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    .toggle-pw {
+      position: absolute;
+      right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: #94A3B8; padding: 2px; display: flex;
+    }
+    .toggle-pw:hover { color: #475569; }
+
+    /* ── Error ── */
+    .login-error {
+      display: none;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #B91C1C;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 18px;
+      animation: shake .35s ease;
+    }
+    @keyframes shake {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-5px)}
+      40%{transform:translateX(5px)}
+      60%{transform:translateX(-4px)}
+      80%{transform:translateX(4px)}
+    }
+
+    /* ── Button ── */
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      transition: opacity .15s, transform .1s;
+      margin-top: 4px;
+    }
+    .btn-login:hover { opacity: .92; }
+    .btn-login:active { transform: scale(.98); }
+    .btn-login:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ── Footer ── */
+    .login-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 11.5px;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+<div class="login-card">
+
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+        <path d="M10 29L20 12L30 29H10Z" fill="white" opacity=".92"/>
+        <rect x="15" y="21" width="10" height="8" rx="1" fill="white" opacity=".65"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">Agent BIM Romania</div>
+      <div class="brand-sub">by Consult Engineering Instalații SRL</div>
+    </div>
+  </div>
+
+  <div class="login-title">Intră în sistem</div>
+  <div class="login-sub">Autentifică-te pentru a accesa dashboard-ul BIM.</div>
+
+  <div class="login-error" id="loginError"></div>
+
+  <form id="loginForm" onsubmit="doLogin(event)">
+    <div class="field">
+      <label for="username">Utilizator</label>
+      <div class="input-wrap">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+          </svg>
+        </span>
+        <input type="text" id="username" name="username" autocomplete="username"
+               placeholder="Utilizator" required/>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="password">Parolă</label>
+      <div class="input-wrap">
+        <span class="input-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+          </svg>
+        </span>
+        <input type="password" id="password" name="password" autocomplete="current-password"
+               placeholder="Parolă" required/>
+        <button type="button" class="toggle-pw" onclick="togglePw()" id="togglePwBtn" title="Arată/ascunde parola">
+          <svg id="eyeIcon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-login" id="loginBtn">Intră în sistem</button>
+  </form>
+
+  <div class="login-footer">
+    Agent BIM Romania &copy; 2025 &mdash; Consult Engineering Instalații SRL
+  </div>
+</div>
+
+<script>
+  function togglePw() {
+    const inp = document.getElementById('password');
+    const icon = document.getElementById('eyeIcon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      icon.innerHTML = '<path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd"/><path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.064 7 9.542 7 .847 0 1.669-.105 2.454-.303z"/>';
+    } else {
+      inp.type = 'password';
+      icon.innerHTML = '<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('loginError');
+    el.textContent = msg;
+    el.style.display = 'block';
+    // retrigger animation
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = 'shake .35s ease';
+  }
+
+  async function doLogin(e) {
+    e.preventDefault();
+    const btn  = document.getElementById('loginBtn');
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value;
+
+    document.getElementById('loginError').style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Se verifică...';
+
+    try {
+      const res  = await fetch('/login', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({username: user, password: pass}),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.csrf_token) {
+        sessionStorage.setItem('csrf_token', data.csrf_token);
+        window.location.href = '/';
+      } else {
+        showError(data.error || 'Autentificare eșuată.');
+        btn.disabled = false;
+        btn.textContent = 'Intră în sistem';
+      }
+    } catch {
+      showError('Nu s-a putut contacta serverul. Verifică conexiunea.');
+      btn.disabled = false;
+      btn.textContent = 'Intră în sistem';
+    }
+  }
+</script>
+</body>
+</html>
