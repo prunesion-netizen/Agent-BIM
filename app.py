@@ -467,6 +467,34 @@ def api_generate():
     doc_type = data.get("type", "").lower()
     project  = data.get("project", "").strip()
 
+    # ── BEP Parametric ────────────────────────────────────────────────────
+    if doc_type == "bep_parametric":
+        required = ["project", "client", "work_type", "phase", "disciplines", "cde_platform"]
+        missing = [f for f in required if not data.get(f)]
+        if missing:
+            return jsonify({"error": f"Câmpuri lipsă: {', '.join(missing)}"}), 400
+        disciplines = data.get("disciplines", [])
+        if isinstance(disciplines, str):
+            disciplines = [d.strip() for d in disciplines.split(",") if d.strip()]
+        params = {
+            "project":      data.get("project", "").strip(),
+            "client":       data.get("client", "").strip(),
+            "work_type":    data.get("work_type", "").strip(),
+            "phase":        data.get("phase", "").strip(),
+            "disciplines":  disciplines,
+            "contractor":   data.get("contractor", "De desemnat").strip(),
+            "cde_platform": data.get("cde_platform", "ACC").strip(),
+            "standards":    data.get("standards", "SR EN ISO 19650-1/2").strip(),
+            "revit_data":   data.get("revit_data", "").strip(),
+        }
+        try:
+            job_id = start_generation("bep_parametric", params["project"], params=params)
+        except Exception as e:
+            logger.error(f"Eroare generare BEP parametric: {e}")
+            return jsonify({"error": "Eroare internă. Contactați administratorul."}), 500
+        return jsonify({"job_id": job_id, "label": "Plan de Execuție BIM (BEP Parametric)"})
+
+    # ── Generatoare standard ──────────────────────────────────────────────
     if doc_type not in GENERATORS:
         return jsonify({"error": f"Tip necunoscut: {doc_type}. Valid: {list(GENERATORS.keys())}"}), 400
 

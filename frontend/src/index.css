@@ -1,0 +1,665 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Agent BIM Romania — Fisa de proiect BEP 2.0
+   Blue professional theme
+   ══════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --blue-50:  #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a5f;
+  --gray-50:  #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --red-50:   #fef2f2;
+  --red-500:  #ef4444;
+  --green-50: #f0fdf4;
+  --green-600:#16a34a;
+  --radius:   10px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-800);
+  background: linear-gradient(135deg, #f0f4ff 0%, var(--gray-50) 50%, #f0f9ff 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Demo container ────────────────────────────────────────────────── */
+.demo-container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+.demo-header {
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--blue-100);
+}
+
+.demo-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.demo-logo {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--blue-600), var(--blue-800));
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 1px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.demo-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.3px;
+}
+
+.demo-header p {
+  margin: 4px 0 0;
+  color: var(--gray-500);
+  font-size: 14px;
+}
+
+/* ── PCF Form container ────────────────────────────────────────────── */
+.pcf {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Fieldset sections ─────────────────────────────────────────────── */
+.pcf-section {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 28px 28px 24px;
+  margin: 0;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  position: relative;
+}
+
+.pcf-section:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--blue-200);
+}
+
+.pcf-section legend {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--blue-700);
+  padding: 0 8px;
+  background: #fff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pcf-section legend::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(180deg, var(--blue-500), var(--blue-700));
+  border-radius: 2px;
+}
+
+/* ── Grid layout ───────────────────────────────────────────────────── */
+.pcf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 24px;
+}
+
+/* ── Individual fields ─────────────────────────────────────────────── */
+.pcf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pcf-field.full {
+  grid-column: 1 / -1;
+}
+
+.pcf-field > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-600);
+  letter-spacing: 0.01em;
+}
+
+/* ── Inputs ────────────────────────────────────────────────────────── */
+.pcf-field input[type="text"],
+.pcf-field input[type="date"],
+.pcf-field select,
+.pcf-field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--gray-800);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.pcf-field input[type="text"]:hover,
+.pcf-field input[type="date"]:hover,
+.pcf-field select:hover,
+.pcf-field textarea:hover {
+  border-color: var(--blue-400);
+}
+
+.pcf-field input[type="text"]:focus,
+.pcf-field input[type="date"]:focus,
+.pcf-field select:focus,
+.pcf-field textarea:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background: #fff;
+}
+
+.pcf-field input::placeholder,
+.pcf-field textarea::placeholder {
+  color: var(--gray-400);
+  font-style: italic;
+}
+
+.pcf-field select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.pcf-field textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+
+.pcf-mono {
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', 'Monaco', monospace !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  background: var(--gray-50) !important;
+  tab-size: 2;
+}
+
+/* ── Checkbox standalone ───────────────────────────────────────────── */
+.pcf-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px !important;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.pcf-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--blue-600);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pcf-checkbox > span {
+  font-size: 14px !important;
+  color: var(--gray-700) !important;
+  font-weight: 400 !important;
+}
+
+/* ── Checkbox column (ISO standards) ───────────────────────────────── */
+.pcf-check-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.pcf-check-col .pcf-checkbox {
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.pcf-check-col .pcf-checkbox:hover {
+  background: var(--blue-50);
+}
+
+/* ── Pill row (CDE modules, disciplines) ───────────────────────────── */
+.pcf-check-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.pcf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  background: #fff;
+}
+
+.pcf-pill:hover {
+  border-color: var(--blue-400);
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.pcf-pill:has(input:checked) {
+  border-color: var(--blue-500);
+  background: linear-gradient(135deg, var(--blue-50), #e0ecff);
+  color: var(--blue-700);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+}
+
+.pcf-pill input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--blue-600);
+  cursor: pointer;
+  margin: 0;
+}
+
+/* ── Action buttons bar ────────────────────────────────────────────── */
+.demo-actions {
+  display: flex;
+  gap: 12px;
+  margin: 28px 0;
+  flex-wrap: wrap;
+  padding: 24px 0;
+  border-top: 1px solid var(--gray-200);
+}
+
+.btn-primary {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--blue-700), var(--blue-800));
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:disabled {
+  background: var(--gray-300);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  padding: 12px 24px;
+  background: #fff;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-outline:hover {
+  border-color: var(--blue-400);
+  color: var(--blue-600);
+  background: var(--blue-50);
+}
+
+/* ── Alerts ────────────────────────────────────────────────────────── */
+.demo-alert {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.demo-alert.error {
+  background: var(--red-50);
+  color: var(--red-500);
+  border: 1px solid #fecaca;
+  border-left: 4px solid var(--red-500);
+}
+
+/* ── Result panel ──────────────────────────────────────────────────── */
+.demo-result {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.demo-result h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--blue-700);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-result h3::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--green-600);
+  border-radius: 50%;
+}
+
+/* ── Rendered BEP Markdown ──────────────────────────────────────────── */
+.bep-rendered {
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 4px 0;
+  color: var(--gray-800);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.bep-rendered h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--blue-800);
+  margin: 32px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--blue-100);
+}
+
+.bep-rendered h1:first-child { margin-top: 0; }
+
+.bep-rendered h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--blue-700);
+  margin: 28px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.bep-rendered h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gray-800);
+  margin: 20px 0 8px;
+}
+
+.bep-rendered h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 16px 0 6px;
+}
+
+.bep-rendered p {
+  margin: 8px 0;
+}
+
+.bep-rendered strong {
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.bep-rendered hr {
+  border: none;
+  border-top: 1px solid var(--gray-200);
+  margin: 20px 0;
+}
+
+.bep-rendered blockquote {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--blue-400);
+  background: var(--blue-50);
+  border-radius: 0 8px 8px 0;
+  color: var(--gray-700);
+}
+
+.bep-rendered blockquote p { margin: 4px 0; }
+
+.bep-rendered ul,
+.bep-rendered ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.bep-rendered li {
+  margin: 4px 0;
+}
+
+.bep-rendered li::marker {
+  color: var(--blue-500);
+}
+
+/* ── Tables ── */
+.bep-rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+}
+
+.bep-rendered thead th {
+  background: var(--blue-700);
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.bep-rendered tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: top;
+}
+
+.bep-rendered tbody tr:nth-child(even) {
+  background: var(--gray-50);
+}
+
+.bep-rendered tbody tr:hover {
+  background: var(--blue-50);
+}
+
+.bep-rendered tbody td:first-child {
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+/* ── Code blocks ── */
+.bep-rendered code {
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 12px;
+  background: var(--gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--blue-800);
+}
+
+.bep-rendered pre {
+  background: var(--gray-900);
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  margin: 12px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.bep-rendered pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ── Debug JSON panel ──────────────────────────────────────────────── */
+.demo-debug {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #a5f3fc;
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-lg);
+}
+
+.demo-debug h3 {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.demo-debug pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.7;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .demo-container {
+    padding: 20px 12px 60px;
+  }
+
+  .pcf-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pcf-section {
+    padding: 20px 16px 18px;
+  }
+
+  .demo-brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .demo-header h1 {
+    font-size: 20px;
+  }
+
+  .demo-actions {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-outline {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .pcf-check-row {
+    gap: 6px;
+  }
+
+  .pcf-pill {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-logo {
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+}

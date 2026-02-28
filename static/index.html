@@ -256,14 +256,14 @@
         <div id="genAlert" class="alert" style="display:none"></div>
 
         <div class="gen-grid" id="genGrid">
-          <!-- BEP -->
-          <div class="gen-card" data-type="bep" onclick="startGenerate('bep')">
+          <!-- BEP Parametric -->
+          <div class="gen-card" data-type="bep" onclick="openBepModal()">
             <div class="gen-card-icon blue">📋</div>
             <div class="gen-card-body">
               <div class="gen-card-title">Plan de Execuție BIM</div>
-              <div class="gen-card-sub">BEP complet: echipă, CDE, LOD, livrabile, standarde ISO 19650</div>
+              <div class="gen-card-sub">BEP parametric cu 13 capitole ISO 19650-2: echipă RACI, CDE, LOD, livrabile, KPI</div>
             </div>
-            <button class="btn btn-primary gen-btn" data-type="bep" onclick="event.stopPropagation();startGenerate('bep')">Generează</button>
+            <button class="btn btn-primary gen-btn" data-type="bep" onclick="event.stopPropagation();openBepModal()">Generează</button>
           </div>
           <!-- LOD -->
           <div class="gen-card" data-type="lod" onclick="startGenerate('lod')">
@@ -423,6 +423,105 @@
 
   </div><!-- /main-wrap -->
 </div><!-- /layout -->
+
+<!-- ═══ MODAL BEP PARAMETRIC ═══ -->
+<div class="modal-overlay" id="bepModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">Plan de Execuție BIM (BEP)</h2>
+      <p class="modal-sub">Completează datele proiectului pentru a genera un BEP cu 13 capitole ISO 19650-2</p>
+      <button class="modal-close" onclick="closeBepModal()" title="Închide">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <!-- Nume proiect -->
+        <div class="form-group">
+          <label class="form-label" for="bepProject">Nume proiect *</label>
+          <input type="text" id="bepProject" class="form-input" placeholder="Ex: Construire Celula 3 Ghizela" required/>
+        </div>
+        <!-- Client -->
+        <div class="form-group">
+          <label class="form-label" for="bepClient">Client / Beneficiar *</label>
+          <input type="text" id="bepClient" class="form-input" placeholder="Ex: Consiliul Județean Timiș" required/>
+        </div>
+        <!-- Tip lucrare -->
+        <div class="form-group">
+          <label class="form-label" for="bepWorkType">Tip lucrare *</label>
+          <select id="bepWorkType" class="form-select">
+            <option value="Clădire rezidențială">Clădire rezidențială</option>
+            <option value="Clădire de birouri">Clădire de birouri</option>
+            <option value="Spital / Sănătate">Spital / Sănătate</option>
+            <option value="Educație (școală/universitate)">Educație</option>
+            <option value="Infrastructură rutieră">Infrastructură rutieră</option>
+            <option value="Infrastructură de mediu">Infrastructură de mediu</option>
+            <option value="Industrial">Industrial</option>
+            <option value="Renovare / Reabilitare">Renovare / Reabilitare</option>
+            <option value="Altele">Altele</option>
+          </select>
+        </div>
+        <!-- Faza -->
+        <div class="form-group">
+          <label class="form-label" for="bepPhase">Faza proiect *</label>
+          <select id="bepPhase" class="form-select">
+            <option value="SF (Studiu de Fezabilitate)">SF — Studiu de Fezabilitate</option>
+            <option value="DALI">DALI</option>
+            <option value="PT (Proiect Tehnic)" selected>PT — Proiect Tehnic</option>
+            <option value="DDE (Detalii de Execuție)">DDE — Detalii de Execuție</option>
+            <option value="PT + DDE">PT + DDE</option>
+            <option value="Execuție">Execuție</option>
+            <option value="As-Built / Recepție">As-Built / Recepție</option>
+          </select>
+        </div>
+        <!-- Contractor -->
+        <div class="form-group">
+          <label class="form-label" for="bepContractor">Contractor execuție</label>
+          <input type="text" id="bepContractor" class="form-input" placeholder="De desemnat" value="De desemnat"/>
+        </div>
+        <!-- CDE -->
+        <div class="form-group">
+          <label class="form-label" for="bepCDE">Platformă CDE *</label>
+          <select id="bepCDE" class="form-select">
+            <option value="Autodesk Construction Cloud (ACC)">ACC (Autodesk)</option>
+            <option value="Trimble Connect">Trimble Connect</option>
+            <option value="BIMcollab">BIMcollab</option>
+            <option value="Oracle Aconex">Aconex</option>
+            <option value="Dalux">Dalux</option>
+            <option value="SharePoint / OneDrive">SharePoint</option>
+            <option value="Altă platformă">Altele</option>
+          </select>
+        </div>
+        <!-- Standarde -->
+        <div class="form-group full-width">
+          <label class="form-label" for="bepStandards">Standarde obligatorii</label>
+          <input type="text" id="bepStandards" class="form-input" value="SR EN ISO 19650-1/2, RTC 8, RTC 9" placeholder="Separate cu virgulă"/>
+        </div>
+        <!-- Revit data -->
+        <div class="form-group full-width">
+          <label class="form-label" for="bepRevitData">Date suplimentare model Revit (opțional)</label>
+          <textarea id="bepRevitData" class="form-input" rows="2" placeholder="Ex: Template Revit 2024, Shared Parameters custom, familii specifice..."></textarea>
+        </div>
+      </div>
+      <!-- Discipline -->
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Discipline BIM *</label>
+        <div class="checkbox-grid">
+          <label class="checkbox-item"><input type="checkbox" value="Arhitectură" checked/> Arhitectură</label>
+          <label class="checkbox-item"><input type="checkbox" value="Structuri" checked/> Structuri</label>
+          <label class="checkbox-item"><input type="checkbox" value="HVAC (Încălzire/Ventilare/Climatizare)"/> HVAC</label>
+          <label class="checkbox-item"><input type="checkbox" value="Instalații sanitare"/> Sanitare</label>
+          <label class="checkbox-item"><input type="checkbox" value="Instalații electrice"/> Electrice</label>
+          <label class="checkbox-item"><input type="checkbox" value="Protecție la incendiu (PSI)"/> PSI</label>
+          <label class="checkbox-item"><input type="checkbox" value="Inginerie civilă (drumuri, terasamente)"/> Civil / Drumuri</label>
+          <label class="checkbox-item"><input type="checkbox" value="Topografie / Geodezie"/> Topografie</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeBepModal()">Anulează</button>
+      <button class="btn btn-primary" id="bepSubmitBtn" onclick="submitBepParametric()">Generează BEP</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

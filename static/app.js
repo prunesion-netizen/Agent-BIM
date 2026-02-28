@@ -312,7 +312,11 @@ document.querySelectorAll('.gen-btn').forEach(btn => {
 
 function goGenerateType(type) {
   showSection('generator');
-  setTimeout(() => startGenerate(type), 300);
+  if (type === 'bep') {
+    setTimeout(() => openBepModal(), 300);
+  } else {
+    setTimeout(() => startGenerate(type), 300);
+  }
 }
 
 function goGenerateProject(project) {
@@ -717,6 +721,95 @@ function docType(name) {
 function docProject(name) {
   const m = name.match(/^[A-Z0-9]+_(.+?)_\d{8}/);
   return m ? m[1].replace(/_/g, ' ') : '—';
+}
+
+// ── BEP Parametric Modal ──────────────────────────────────────────────────────
+function openBepModal() {
+  const modal = document.getElementById('bepModal');
+  modal.classList.add('active');
+  // Pre-fill project name from dropdown if selected
+  const genProj = document.getElementById('genProject');
+  if (genProj && genProj.value) {
+    document.getElementById('bepProject').value = genProj.value;
+  }
+}
+
+function closeBepModal() {
+  document.getElementById('bepModal').classList.remove('active');
+}
+
+// Close modal on overlay click
+document.getElementById('bepModal').addEventListener('click', function(e) {
+  if (e.target === this) closeBepModal();
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeBepModal();
+});
+
+async function submitBepParametric() {
+  const project   = document.getElementById('bepProject').value.trim();
+  const client    = document.getElementById('bepClient').value.trim();
+  const workType  = document.getElementById('bepWorkType').value;
+  const phase     = document.getElementById('bepPhase').value;
+  const contractor = document.getElementById('bepContractor').value.trim() || 'De desemnat';
+  const cde       = document.getElementById('bepCDE').value;
+  const standards = document.getElementById('bepStandards').value.trim();
+  const revitData = document.getElementById('bepRevitData').value.trim();
+
+  // Collect checked disciplines
+  const disciplines = [];
+  document.querySelectorAll('#bepModal .checkbox-grid input[type="checkbox"]:checked').forEach(cb => {
+    disciplines.push(cb.value);
+  });
+
+  // Validation
+  if (!project) { showToast('Te rugăm să completezi numele proiectului.', 'warn'); return; }
+  if (!client)  { showToast('Te rugăm să completezi clientul/beneficiarul.', 'warn'); return; }
+  if (disciplines.length === 0) { showToast('Selectează cel puțin o disciplină BIM.', 'warn'); return; }
+
+  // Close modal
+  closeBepModal();
+
+  // Show progress
+  const panel  = document.getElementById('genProgressPanel');
+  const result = document.getElementById('genResult');
+  const alert  = document.getElementById('genAlert');
+  alert.style.display  = 'none';
+  result.style.display = 'none';
+  panel.style.display  = 'block';
+  setEl('genProgressTitle', 'Se generează: BEP Parametric (13 capitole)');
+  setEl('genProgressSub', `Proiect: ${project} · 4 apeluri AI · Durează 60–120 secunde…`);
+
+  // Disable gen buttons
+  document.querySelectorAll('.gen-btn').forEach(b => b.disabled = true);
+
+  try {
+    const data = await apiFetch('/api/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': getCSRFToken()},
+      body: JSON.stringify({
+        type: 'bep_parametric',
+        project,
+        client,
+        work_type: workType,
+        phase,
+        disciplines,
+        contractor,
+        cde_platform: cde,
+        standards,
+        revit_data: revitData,
+      }),
+    });
+    _activeJobId = data.job_id;
+    pollGenJob();
+  } catch (e) {
+    panel.style.display = 'none';
+    alert.style.display = 'block';
+    alert.textContent   = '⚠ Eroare la pornirea generării BEP: ' + e.message;
+    document.querySelectorAll('.gen-btn').forEach(b => b.disabled = false);
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

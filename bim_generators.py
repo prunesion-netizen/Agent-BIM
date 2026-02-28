@@ -13,6 +13,8 @@ import datetime
 import threading
 from pathlib import Path
 
+import json
+
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -172,6 +174,71 @@ def _add_table(doc, headers: list, rows: list):
             _shd(dr.cells[j], bg)
             p = dr.cells[j].paragraphs[0]
             r = p.add_run(str(cell))
+            r.font.size = Pt(8.5)
+            r.font.color.rgb = GRAY_TEXT
+            if j == 0:
+                r.font.bold = True
+    doc.add_paragraph()
+
+
+def _set_cell_border(cell, **kwargs):
+    """Adaugă chenar la o celulă."""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement("w:tcBorders")
+    for side in ["top", "left", "bottom", "right"]:
+        border = OxmlElement(f"w:{side}")
+        border.set(qn("w:val"), kwargs.get("val", "single"))
+        border.set(qn("w:sz"), str(kwargs.get("sz", 4)))
+        border.set(qn("w:space"), "0")
+        border.set(qn("w:color"), kwargs.get("color", "1D4ED8"))
+        tcBorders.append(border)
+    tcPr.append(tcBorders)
+
+
+def _add_info_table(doc, rows: list):
+    """Tabel cheie-valoare pentru informații proiect (2 coloane: cheie albastru, valoare gri)."""
+    table = doc.add_table(rows=len(rows), cols=2)
+    table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.LEFT
+    col_widths = [Cm(5.5), Cm(11.5)]
+    for i, (key, val) in enumerate(rows):
+        row = table.rows[i]
+        row.cells[0].width = col_widths[0]
+        row.cells[1].width = col_widths[1]
+        _shd(row.cells[0], "DBF0FE")
+        kp = row.cells[0].paragraphs[0]
+        kr = kp.add_run(key)
+        kr.font.bold = True
+        kr.font.size = Pt(9)
+        kr.font.color.rgb = BLUE_DARK
+        vp = row.cells[1].paragraphs[0]
+        vr = vp.add_run(str(val))
+        vr.font.size = Pt(9)
+        vr.font.color.rgb = GRAY_TEXT
+    doc.add_paragraph()
+
+
+def _add_matrix_table(doc, headers: list, data: list):
+    """Tabel matrice cu header albastru și rânduri alternate."""
+    table = doc.add_table(rows=1 + len(data), cols=len(headers))
+    table.style = "Table Grid"
+    hrow = table.rows[0]
+    for j, h in enumerate(headers):
+        _shd(hrow.cells[j], "1D4ED8")
+        p = hrow.cells[j].paragraphs[0]
+        r = p.add_run(h)
+        r.font.bold = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = WHITE
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for i, row_data in enumerate(data):
+        drow = table.rows[i + 1]
+        bg = "F0F9FF" if i % 2 == 0 else "FFFFFF"
+        for j, cell_text in enumerate(row_data):
+            _shd(drow.cells[j], bg)
+            p = drow.cells[j].paragraphs[0]
+            r = p.add_run(str(cell_text))
             r.font.size = Pt(8.5)
             r.font.color.rgb = GRAY_TEXT
             if j == 0:
@@ -564,6 +631,497 @@ Fii critic si constructiv. Identifica lacunele reale."""
     return str(out)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# BEP PARAMETRIC — 13 capitole ISO 19650-2
+# ══════════════════════════════════════════════════════════════════════════════
+
+SYSTEM_BEP_PARAMETRIC = (
+    "Ești BIM Manager senior în România, expert ISO 19650. "
+    "Generezi secțiuni de BEP profesionale, adaptate la parametrii primiți. "
+    "Răspunzi STRICT în JSON valid (fără ```json, fără text înainte/după). "
+    "Limba: română. Fii detaliat dar concis."
+)
+
+
+def _ask_claude_json(system: str, user: str, max_tokens: int = 4000) -> dict:
+    """Apel Claude cu parsare JSON. Fallback pe dict gol dacă parsing eșuează."""
+    raw = ask_claude(system, user, max_tokens=max_tokens)
+    # Strip markdown code fences if present
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        lines = lines[1:]  # remove ```json
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        return {"_raw_markdown": raw}
+
+
+def gen_bep_parametric(params: dict) -> str:
+    """Generează BEP parametric cu 13 capitole ISO 19650-2. Returnează calea fișierului."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    project     = params.get("project", "Proiect BIM")
+    client      = params.get("client", "De completat")
+    work_type   = params.get("work_type", "constructie")
+    phase       = params.get("phase", "PT")
+    disciplines = params.get("disciplines", ["Arhitectura", "Structuri"])
+    contractor  = params.get("contractor", "De desemnat")
+    cde         = params.get("cde_platform", "ACC")
+    standards   = params.get("standards", "SR EN ISO 19650-1/2, RTC 8")
+    revit_data  = params.get("revit_data", "")
+    today       = datetime.date.today().strftime("%d.%m.%Y")
+
+    disc_str = ", ".join(disciplines)
+
+    # ── RAG context ────────────────────────────────────────────────────────
+    rag_queries = [
+        f"BEP plan executie BIM {work_type}",
+        f"cerinte BIM {disc_str}",
+        f"standarde ISO 19650 {standards}",
+        f"CDE {cde} structura foldere",
+        f"LOD nivel detaliu {phase}",
+    ]
+    ctx = get_project_context(project, rag_queries, n=4)
+    ctx_block = f"\n\nCONTEXT DIN DOCUMENTE:\n{ctx}" if ctx else ""
+
+    # ── Common params for prompts ──────────────────────────────────────────
+    params_block = (
+        f"Proiect: {project}\n"
+        f"Client/Beneficiar: {client}\n"
+        f"Tip lucrare: {work_type}\n"
+        f"Faza curentă: {phase}\n"
+        f"Discipline: {disc_str}\n"
+        f"Contractor execuție: {contractor}\n"
+        f"Platformă CDE: {cde}\n"
+        f"Standarde obligatorii: {standards}\n"
+        f"Date suplimentare Revit: {revit_data or 'N/A'}\n"
+        f"Data BEP: {today}"
+    )
+
+    # ── CALL 1: Capitolele 1-3 ─────────────────────────────────────────────
+    logger.info("BEP parametric: Call 1/4 (Cap. 1-3)")
+    c1 = _ask_claude_json(SYSTEM_BEP_PARAMETRIC, f"""Parametri proiect:
+{params_block}
+{ctx_block}
+
+Generează JSON cu structura:
+{{
+  "info_rows": [["Câmp", "Valoare"], ...],  // 8-10 rânduri: beneficiar, proiectant, tip, fază, amplasament, nr.proiect, data BEP, versiune, status
+  "scope_text": "Paragraf scop BEP...",
+  "scope_bullets": ["bullet1", "bullet2", ...],
+  "oir": ["obiectiv1", "obiectiv2", ...],  // 5-7 OIR
+  "air": ["cerință1", "cerință2", ...],  // 4-6 AIR
+  "pir_table": [["Nr.", "Cerință", "Faza", "Format", "Sursa"], ...],  // 8-12 rânduri
+  "raci_table": [["Rol BIM", "Titular", "Responsabilitate", "RACI"], ...],  // 6-8 rânduri
+  "bim_manager_duties": ["sarcina1", ...],  // 5-7 bullets
+  "contractor_duties": ["sarcina1", ...]  // 5-6 bullets
+}}
+
+Adaptează conținutul la tipul de lucrare "{work_type}" și disciplinele "{disc_str}". Clientul este "{client}".""",
+        max_tokens=4000)
+
+    # ── CALL 2: Capitolele 4-6 ─────────────────────────────────────────────
+    logger.info("BEP parametric: Call 2/4 (Cap. 4-6)")
+    c2 = _ask_claude_json(SYSTEM_BEP_PARAMETRIC, f"""Parametri proiect:
+{params_block}
+{ctx_block}
+
+Generează JSON cu structura:
+{{
+  "cde_info": [["Câmp", "Valoare"], ...],  // 6-8 rânduri: platformă, module, acces, admin, formate, backup
+  "cde_folders": [["Folder CDE", "Conținut"], ...],  // 8-12 rânduri adaptate la discipline {disc_str}
+  "cde_lifecycle": ["WIP description", "Shared description", "Published description", "Archived description"],
+  "naming_convention": "Convenție denumire documente...",
+  "standards_table": [["Standard", "Titlu", "Aplicabilitate"], ...],  // 8-10 rânduri
+  "file_formats": [["Tip", "Format", "Software", "Utilizare"], ...],  // 7-9 rânduri
+  "georef_text": "Paragraf georeferențiere cu EPSG:3844...",
+  "software_table": [["Software", "Versiune min.", "Licență", "Utilizator", "Utilizare"], ...]  // 6-9 rânduri
+}}
+
+Platformă CDE: "{cde}". Discipline: "{disc_str}". Standarde obligatorii: "{standards}".""",
+        max_tokens=4000)
+
+    # ── CALL 3: Capitolele 7-9 ─────────────────────────────────────────────
+    logger.info("BEP parametric: Call 3/4 (Cap. 7-9)")
+    c3 = _ask_claude_json(SYSTEM_BEP_PARAMETRIC, f"""Parametri proiect:
+{params_block}
+{ctx_block}
+
+Generează JSON cu structura:
+{{
+  "lod_intro": "Paragraf introductiv despre LOD...",
+  "lod_definitions": [["LOD", "Denumire", "Descriere"], ...],  // LOD 100-400
+  "lod_matrix": [["Element BIM", "PT (LOD)", "DDE (LOD)", "Execuție (LOD)", "As-Built (LOD)", "Note"], ...],  // 10-15 rânduri relevante pt {work_type}
+  "deliverables_table": [["Cod", "Livrabil", "Format", "Responsabil", "Fază", "Destinatar"], ...],  // 10-14 rânduri BIM-LIV-XX
+  "milestones_table": [["Jalon", "Eveniment", "Livrabile asociate"], ...],  // M0-M8
+  "coordination_process": ["pas1", "pas2", ...],  // 5-6 pași flux coordonare
+  "clash_types": [["Tip Clash", "Descriere", "Prioritate", "Termen remediere"], ...],  // 4 tipuri
+  "meetings_text": ["frecventa_proiectare", "frecventa_executie", "milestone_review"]
+}}
+
+Discipline: "{disc_str}". Tip lucrare: "{work_type}". Faza curentă: "{phase}".""",
+        max_tokens=4000)
+
+    # ── CALL 4: Capitolele 10-13 ───────────────────────────────────────────
+    logger.info("BEP parametric: Call 4/4 (Cap. 10-13)")
+    c4 = _ask_claude_json(SYSTEM_BEP_PARAMETRIC, f"""Parametri proiect:
+{params_block}
+{ctx_block}
+
+Generează JSON cu structura:
+{{
+  "asbuilt_requirements": ["cerința1", ...],  // 5-6 cerințe As-Built
+  "technical_book": ["A. ...", "B. ...", ...],  // 4-5 componente carte tehnică
+  "handover_items": ["item1", ...],  // 5-6 iteme predare
+  "quality_checks": ["verificare1", ...],  // 5 verificări model
+  "kpi_table": [["KPI", "Țintă", "Frecvență", "Responsabil"], ...],  // 5-6 KPI-uri
+  "audit_text": ["audit_intern desc", "audit_extern desc"],
+  "phase1_actions": ["acțiune1", ...],  // Faza 1 pregătire
+  "phase2_actions": ["acțiune1", ...],  // Faza 2 proiectare
+  "phase3_actions": ["acțiune1", ...],  // Faza 3 execuție
+  "phase4_actions": ["acțiune1", ...],  // Faza 4 finalizare
+  "approval_table": [["Rol", "Nume/Organizație", "Funcție", "Data", "Semnătură"], ...],  // 4-5 rânduri
+  "revision_history": [["Versiune", "Data", "Modificări", "Aprobat de"], ...]  // 2-3 rânduri
+}}
+
+Client: "{client}". Contractor: "{contractor}". Tip: "{work_type}".""",
+        max_tokens=3500)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # ASAMBLARE DOCX
+    # ═══════════════════════════════════════════════════════════════════════
+    logger.info("BEP parametric: Asamblare DOCX")
+    doc = _setup_doc("PLAN DE EXECUȚIE BIM (BEP)", project)
+
+    # Subtitlu
+    p_sub = doc.add_paragraph()
+    r_sub = p_sub.add_run("BIM Execution Plan — ISO 19650-2")
+    r_sub.font.size = Pt(13)
+    r_sub.font.italic = True
+    r_sub.font.color.rgb = GRAY_TEXT
+
+    # Cover info table
+    _add_info_table(doc, [
+        ("Beneficiar / Client", client),
+        ("Tip lucrare", work_type),
+        ("Faza curentă", phase),
+        ("Discipline", disc_str),
+        ("Contractor execuție", contractor),
+        ("Platformă CDE", cde),
+        ("Data BEP", today),
+        ("Versiune", "1.0 — Emitere Inițială"),
+        ("Status", "DRAFT — pentru revizuire și aprobare"),
+    ])
+
+    p_std = doc.add_paragraph()
+    r_std = p_std.add_run("Elaborat în conformitate cu SR EN ISO 19650-2 și bunele practici BIM")
+    r_std.font.size = Pt(9)
+    r_std.font.italic = True
+    r_std.font.color.rgb = GRAY_TEXT
+
+    doc.add_page_break()
+
+    # ── Helper: fallback to markdown if JSON failed ────────────────────────
+    def _has(d, key):
+        return isinstance(d, dict) and key in d and d[key] and key != "_raw_markdown"
+
+    def _fallback_md(d, doc_ref):
+        if isinstance(d, dict) and "_raw_markdown" in d:
+            _md_to_doc(doc_ref, d["_raw_markdown"])
+            return True
+        return False
+
+    # ════════ CAPITOLUL 1: Informații Generale ══════════════════════════════
+    _add_h1(doc, "1. INFORMAȚII GENERALE DESPRE PROIECT")
+
+    if _has(c1, "info_rows"):
+        _add_h2(doc, "1.1 Date de identificare")
+        _add_info_table(doc, [(r[0], r[1]) for r in c1["info_rows"]])
+    elif _fallback_md(c1, doc):
+        pass
+    else:
+        _add_info_table(doc, [
+            ("Denumire proiect", project),
+            ("Beneficiar", client),
+            ("Tip lucrare", work_type),
+            ("Faza curentă", phase),
+            ("Discipline", disc_str),
+            ("Data BEP", today),
+        ])
+
+    if _has(c1, "scope_text"):
+        _add_h2(doc, "1.2 Scopul BEP")
+        _add_body(doc, c1["scope_text"])
+        for b in c1.get("scope_bullets", []):
+            _add_bullet(doc, b)
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 2: Obiective BIM ═══════════════════════════════════
+    _add_h1(doc, "2. OBIECTIVELE BIM ȘI CERINȚELE DE INFORMAȚII")
+
+    if _has(c1, "oir"):
+        _add_h2(doc, "2.1 Obiective BIM ale Beneficiarului (OIR)")
+        for o in c1["oir"]:
+            _add_bullet(doc, o)
+
+    if _has(c1, "air"):
+        _add_h2(doc, "2.2 Cerințele de Informații ale Activului (AIR)")
+        for a in c1["air"]:
+            _add_bullet(doc, a)
+
+    if _has(c1, "pir_table"):
+        _add_h2(doc, "2.3 Cerințele de Informații ale Proiectului (PIR)")
+        headers_pir = ["Nr.", "Cerință", "Faza", "Format", "Sursa"]
+        _add_matrix_table(doc, headers_pir, c1["pir_table"])
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 3: Echipa BIM ══════════════════════════════════════
+    _add_h1(doc, "3. ECHIPA BIM — ROLURI ȘI RESPONSABILITĂȚI")
+
+    if _has(c1, "raci_table"):
+        _add_h2(doc, "3.1 Matrice RACI — Echipa BIM")
+        _add_matrix_table(doc, ["Rol BIM", "Titular / Organizație", "Responsabilitate principală", "RACI"],
+                          c1["raci_table"])
+
+    if _has(c1, "bim_manager_duties"):
+        _add_h2(doc, "3.2 Responsabilitățile BIM Manager")
+        for d in c1["bim_manager_duties"]:
+            _add_bullet(doc, d)
+
+    if _has(c1, "contractor_duties"):
+        _add_h2(doc, "3.3 Responsabilitățile Contractor BIM")
+        for d in c1["contractor_duties"]:
+            _add_bullet(doc, d)
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 4: CDE ═════════════════════════════════════════════
+    _add_h1(doc, "4. MEDIUL COMUN DE DATE (CDE)")
+
+    if _has(c2, "cde_info"):
+        _add_h2(doc, "4.1 Platforma CDE")
+        _add_info_table(doc, [(r[0], r[1]) for r in c2["cde_info"]])
+    elif _fallback_md(c2, doc):
+        pass
+
+    if _has(c2, "cde_folders"):
+        _add_h2(doc, "4.2 Structura folderelor CDE")
+        _add_matrix_table(doc, ["Folder CDE", "Conținut"], c2["cde_folders"])
+
+    if _has(c2, "cde_lifecycle"):
+        _add_h2(doc, "4.3 Ciclul de viață al documentelor")
+        for status_desc in c2["cde_lifecycle"]:
+            _add_bullet(doc, status_desc)
+
+    if _has(c2, "naming_convention"):
+        _add_body(doc, f"Convenție de denumire: {c2['naming_convention']}")
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 5: Standarde ═══════════════════════════════════════
+    _add_h1(doc, "5. STANDARDE ȘI PROTOCOALE BIM")
+
+    if _has(c2, "standards_table"):
+        _add_h2(doc, "5.1 Standarde de referință")
+        _add_matrix_table(doc, ["Standard", "Titlu", "Aplicabilitate"], c2["standards_table"])
+
+    if _has(c2, "file_formats"):
+        _add_h2(doc, "5.2 Formate de fișiere acceptate")
+        _add_matrix_table(doc, ["Tip", "Format", "Software", "Utilizare"], c2["file_formats"])
+
+    # Georeferentiere — deterministic section
+    _add_h2(doc, "5.3 Sistemul de coordonate și georeferențiere")
+    georef = c2.get("georef_text", "") if isinstance(c2, dict) else ""
+    if georef:
+        _add_body(doc, georef)
+    else:
+        _add_body(doc,
+            "Toate modelele BIM vor fi georeferențiate în sistemul național de proiecție "
+            "Stereografic 1970 (EPSG:3844), cu punct de origine comună stabilit de proiectantul "
+            "topograf. Cota ±0.00 din modele va corespunde cotei absolute (mNMN)."
+        )
+    _add_body(doc, "Unitate de măsură: metru (m). Precizie coordonate: ±1 mm în model.")
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 6: Software ════════════════════════════════════════
+    _add_h1(doc, "6. SOFTWARE ȘI PLATFORME")
+
+    if _has(c2, "software_table"):
+        _add_matrix_table(doc, ["Software / Platformă", "Versiune min.", "Licență", "Utilizator", "Utilizare"],
+                          c2["software_table"])
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 7: LOD ═════════════════════════════════════════════
+    _add_h1(doc, "7. NIVELELE DE DETALIU (LOD) ȘI INFORMAȚII (LOI)")
+
+    if _has(c3, "lod_intro"):
+        _add_body(doc, c3["lod_intro"])
+    elif _fallback_md(c3, doc):
+        pass
+
+    if _has(c3, "lod_definitions"):
+        _add_h2(doc, "7.1 Definiții LOD")
+        _add_matrix_table(doc, ["LOD", "Denumire", "Descriere"], c3["lod_definitions"])
+
+    if _has(c3, "lod_matrix"):
+        _add_h2(doc, "7.2 Matrice LOD pe faze și elemente")
+        _add_matrix_table(doc,
+            ["Element BIM", "PT\n(LOD)", "DDE\n(LOD)", "Execuție\n(LOD)", "As-Built\n(LOD)", "Note"],
+            c3["lod_matrix"])
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 8: Livrabile ═══════════════════════════════════════
+    _add_h1(doc, "8. LIVRABILE BIM ȘI CALENDAR")
+
+    if _has(c3, "deliverables_table"):
+        _add_h2(doc, "8.1 Lista livrabilelor BIM")
+        _add_matrix_table(doc,
+            ["Cod", "Livrabil", "Format", "Responsabil", "Fază", "Destinatar"],
+            c3["deliverables_table"])
+
+    if _has(c3, "milestones_table"):
+        _add_h2(doc, "8.2 Jaloane BIM (Milestones)")
+        _add_matrix_table(doc,
+            ["Jalon", "Eveniment", "Livrabile asociate"],
+            c3["milestones_table"])
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 9: Coordonare ══════════════════════════════════════
+    _add_h1(doc, "9. COORDONARE BIM ȘI CLASH DETECTION")
+
+    if _has(c3, "coordination_process"):
+        _add_h2(doc, "9.1 Procesul de coordonare")
+        for i, step in enumerate(c3["coordination_process"], 1):
+            _add_bullet(doc, f"{i}. {step}")
+
+    if _has(c3, "clash_types"):
+        _add_h2(doc, "9.2 Tipuri de interferențe verificate")
+        _add_matrix_table(doc,
+            ["Tip Clash", "Descriere", "Prioritate", "Termen remediere"],
+            c3["clash_types"])
+
+    if _has(c3, "meetings_text"):
+        _add_h2(doc, "9.3 Ședințe BIM")
+        for m in c3["meetings_text"]:
+            _add_bullet(doc, m)
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 10: As-Built ═══════════════════════════════════════
+    _add_h1(doc, "10. DOCUMENTAȚIE AS-BUILT ȘI PREDARE")
+
+    if _has(c4, "asbuilt_requirements"):
+        _add_h2(doc, "10.1 Cerințe As-Built")
+        for r in c4["asbuilt_requirements"]:
+            _add_bullet(doc, r)
+    elif _fallback_md(c4, doc):
+        pass
+
+    if _has(c4, "technical_book"):
+        _add_h2(doc, "10.2 Dosarul Cărții Tehnice (digital)")
+        for t in c4["technical_book"]:
+            _add_bullet(doc, t)
+
+    if _has(c4, "handover_items"):
+        _add_h2(doc, "10.3 Predare la beneficiar")
+        for h in c4["handover_items"]:
+            _add_bullet(doc, h)
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 11: Calitate ═══════════════════════════════════════
+    _add_h1(doc, "11. MANAGEMENTUL CALITĂȚII BIM")
+
+    if _has(c4, "quality_checks"):
+        _add_h2(doc, "11.1 Verificări model (Quality Checks)")
+        for q in c4["quality_checks"]:
+            _add_bullet(doc, q)
+
+    if _has(c4, "kpi_table"):
+        _add_h2(doc, "11.2 Indicatori KPI BIM")
+        _add_matrix_table(doc, ["KPI", "Țintă", "Frecvență", "Responsabil"], c4["kpi_table"])
+
+    if _has(c4, "audit_text"):
+        _add_h2(doc, "11.3 Audituri BIM")
+        for a in c4["audit_text"]:
+            _add_bullet(doc, a)
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 12: Plan implementare ══════════════════════════════
+    _add_h1(doc, "12. PLAN DE IMPLEMENTARE BIM")
+
+    for phase_num, (phase_title, key) in enumerate([
+        ("Pregătire și configurare (M0)", "phase1_actions"),
+        ("Proiectare PT/DDE (M0 → M2)", "phase2_actions"),
+        ("Execuție (M3 → M6)", "phase3_actions"),
+        ("Finalizare și predare (M7 → M8)", "phase4_actions"),
+    ], 1):
+        _add_h2(doc, f"12.{phase_num} Faza {phase_num} — {phase_title}")
+        if _has(c4, key):
+            for a in c4[key]:
+                _add_bullet(doc, a)
+        else:
+            _add_body(doc, "De detaliat la kick-off meeting.")
+
+    doc.add_page_break()
+
+    # ════════ CAPITOLUL 13: Aprobări ═══════════════════════════════════════
+    _add_h1(doc, "13. APROBĂRI BEP")
+
+    _add_body(doc,
+        "Prezentul BEP este supus aprobării tuturor părților implicate. "
+        "Semnătura electronică sau umedă atestă acceptarea cerințelor.")
+
+    if _has(c4, "approval_table"):
+        _add_matrix_table(doc,
+            ["Rol", "Nume / Organizație", "Funcție", "Data", "Semnătură"],
+            c4["approval_table"])
+    else:
+        _add_matrix_table(doc,
+            ["Rol", "Nume / Organizație", "Funcție", "Data", "Semnătură"],
+            [
+                ["Client / Beneficiar", client, "Reprezentant legal", "_________", "___________"],
+                ["BIM Manager", "De desemnat", "BIM Manager", "_________", "___________"],
+                ["Contractor BIM", contractor, "BIM Lead", "_________", "___________"],
+            ])
+
+    _add_h2(doc, "Istoricul reviziilor BEP")
+    if _has(c4, "revision_history"):
+        _add_matrix_table(doc,
+            ["Versiune", "Data", "Modificări", "Aprobat de"],
+            c4["revision_history"])
+    else:
+        _add_matrix_table(doc,
+            ["Versiune", "Data", "Modificări", "Aprobat de"],
+            [
+                ["v1.0", today, "Emitere inițială — Draft", "BIM Manager"],
+                ["v1.1", "TBD", "Actualizare după feedback", "BIM Manager + Client"],
+            ])
+
+    _add_body(doc,
+        "Notă: BEP-ul va fi revizuit la fiecare jalon major (M0–M8) sau la modificări semnificative.")
+
+    # ── Salvare ────────────────────────────────────────────────────────────
+    ts   = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+    safe = re.sub(r"[^\w]", "_", project)[:30]
+    out  = GENERATED_DIR / f"BEP_{safe}_{ts}.docx"
+    doc.save(str(out))
+    logger.info(f"BEP parametric generat: {out}")
+    return str(out)
+
+
 # ── Job management (pentru generare async) ────────────────────────────────────
 _jobs: dict = {}
 _jobs_lock = threading.Lock()
@@ -589,7 +1147,7 @@ DOC_LABELS = {
 }
 
 
-def start_generation(doc_type: str, project: str) -> str:
+def start_generation(doc_type: str, project: str, params: dict = None) -> str:
     """Porneste generarea asincron. Returneaza job_id."""
     import uuid
     job_id = str(uuid.uuid4())[:8]
@@ -598,8 +1156,11 @@ def start_generation(doc_type: str, project: str) -> str:
 
     def _run():
         try:
-            fn = GENERATORS[doc_type]
-            path = fn(project)
+            if doc_type == "bep_parametric" and params:
+                path = gen_bep_parametric(params)
+            else:
+                fn = GENERATORS[doc_type]
+                path = fn(project)
             with _jobs_lock:
                 _jobs[job_id]["status"] = "done"
                 _jobs[job_id]["file"]   = Path(path).name
