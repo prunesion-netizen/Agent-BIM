@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import ProjectContextFormDemo from "./components/ProjectContextFormDemo";
 import ChatExpert from "./components/ChatExpert";
+import BepVerifier from "./components/BepVerifier";
 
-type Tab = "bep" | "chat";
+type Tab = "bep" | "chat" | "verifier";
 
 export interface BepContext {
   projectCode: string;
@@ -40,6 +41,14 @@ function App() {
           Chat Expert BIM
           {bepCtx && <span className="app-tab-badge" />}
         </button>
+        <button
+          className={`app-tab ${tab === "verifier" ? "active" : ""}`}
+          onClick={() => setTab("verifier")}
+        >
+          <span className="app-tab-icon">&#9989;</span>
+          Verificare BEP
+          {bepCtx && <span className="app-tab-badge" />}
+        </button>
       </nav>
 
       <main className="app-main">
@@ -51,6 +60,9 @@ function App() {
         )}
         {tab === "chat" && (
           <ChatExpert bepContext={bepCtx} />
+        )}
+        {tab === "verifier" && (
+          <BepVerifier bepContext={bepCtx} />
         )}
       </main>
     </div>
