@@ -1,14 +1,19 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { BepContext } from "../App";
+
+interface Props {
+  bepContext?: BepContext | null;
+}
 
 interface Message {
   id: number;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
 }
 
-const SUGGESTIONS = [
+const SUGGESTIONS_GENERAL = [
   "Ce este un BEP conform ISO 19650-2?",
   "Care sunt rolurile intr-o echipa BIM?",
   "Cum se structureaza un CDE?",
@@ -17,13 +22,23 @@ const SUGGESTIONS = [
   "Care sunt fazele unui proiect BIM in Romania?",
 ];
 
-export default function ChatExpert() {
+const SUGGESTIONS_BEP = [
+  "Rezuma capitolele principale din BEP",
+  "Ce discipline sunt incluse in proiect?",
+  "Care sunt KPI-urile BIM definite?",
+  "Ce standarde se aplica?",
+  "Cum e structurat CDE-ul?",
+  "Care sunt jaloanele si livrabilele?",
+];
+
+export default function ChatExpert({ bepContext }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [announcedBep, setAnnouncedBep] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  let nextId = useRef(0);
+  const nextId = useRef(0);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,6 +47,19 @@ export default function ChatExpert() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Announce when BEP context becomes available
+  useEffect(() => {
+    if (bepContext && bepContext.projectCode !== announcedBep) {
+      const sysMsg: Message = {
+        id: nextId.current++,
+        role: "system",
+        content: `BEP-ul proiectului **${bepContext.projectName}** (${bepContext.projectCode}) a fost incarcat ca context. Intrebarile tale vor primi raspunsuri bazate pe acest BEP.`,
+      };
+      setMessages((prev) => [...prev, sysMsg]);
+      setAnnouncedBep(bepContext.projectCode);
+    }
+  }, [bepContext, announcedBep]);
 
   async function sendMessage(text: string) {
     const userMsg: Message = { id: nextId.current++, role: "user", content: text };
@@ -43,7 +71,10 @@ export default function ChatExpert() {
       const res = await fetch("/api/chat-expert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, project_id: null }),
+        body: JSON.stringify({
+          message: text,
+          project_id: bepContext?.projectCode ?? null,
+        }),
       });
 
       if (!res.ok) {
@@ -86,20 +117,29 @@ export default function ChatExpert() {
   }
 
   const isEmpty = messages.length === 0;
+  const suggestions = bepContext ? SUGGESTIONS_BEP : SUGGESTIONS_GENERAL;
 
   return (
     <div className="chat-container">
+      {bepContext && (
+        <div className="chat-context-bar">
+          <span className="chat-context-dot" />
+          Context activ: <strong>{bepContext.projectName}</strong> ({bepContext.projectCode})
+        </div>
+      )}
+
       <div className="chat-messages">
         {isEmpty && !loading && (
           <div className="chat-welcome">
             <div className="chat-welcome-icon">BIM</div>
             <h2>Expert BIM Romania</h2>
             <p>
-              Intreaba orice despre BIM, ISO 19650, CDE, LOD, clash detection,
-              standarde romanesti (RTC 8/9) sau bune practici de proiectare.
+              {bepContext
+                ? `Intreaba orice despre BEP-ul proiectului "${bepContext.projectName}". Expertul are acces la documentul complet.`
+                : "Intreaba orice despre BIM, ISO 19650, CDE, LOD, clash detection, standarde romanesti (RTC 8/9) sau bune practici de proiectare."}
             </p>
             <div className="chat-suggestions">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   className="chat-suggestion"
@@ -114,12 +154,18 @@ export default function ChatExpert() {
 
         {messages.map((msg) => (
           <div key={msg.id} className={`chat-msg chat-msg-${msg.role}`}>
-            <div className="chat-msg-avatar">
-              {msg.role === "user" ? "Tu" : "AI"}
-            </div>
+            {msg.role !== "system" && (
+              <div className="chat-msg-avatar">
+                {msg.role === "user" ? "Tu" : "AI"}
+              </div>
+            )}
             <div className="chat-msg-body">
               {msg.role === "assistant" ? (
                 <div className="chat-md">
+                  <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
+                </div>
+              ) : msg.role === "system" ? (
+                <div className="chat-system-msg">
                   <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
                 </div>
               ) : (
@@ -150,7 +196,7 @@ export default function ChatExpert() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Intreaba Expert BIM..."
+          placeholder={bepContext ? `Intreaba despre ${bepContext.projectCode}...` : "Intreaba Expert BIM..."}
           rows={1}
           disabled={loading}
         />

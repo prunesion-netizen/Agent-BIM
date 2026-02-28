@@ -3,8 +3,14 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ProjectContextForm from "./ProjectContextForm";
 import { createDefaultProjectContext, type ProjectContext } from "../types/projectContext";
+import type { BepContext } from "../App";
 
-export default function ProjectContextFormDemo() {
+interface Props {
+  onBepGenerated?: (ctx: BepContext) => void;
+  onGoToChat?: () => void;
+}
+
+export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: Props) {
   const [ctx, setCtx] = useState<ProjectContext>(createDefaultProjectContext);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,6 +106,11 @@ export default function ProjectContextFormDemo() {
 
       const data = await res.json();
       setResult(data.bep_markdown);
+      onBepGenerated?.({
+        projectCode: data.project_code,
+        projectName: ctx.project_name,
+        bepMarkdown: data.bep_markdown,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
     } finally {
@@ -139,7 +150,14 @@ export default function ProjectContextFormDemo() {
 
       {result && (
         <div className="demo-result">
-          <h3>BEP generat</h3>
+          <div className="demo-result-header">
+            <h3>BEP generat</h3>
+            {onGoToChat && (
+              <button className="btn-chat-link" onClick={onGoToChat}>
+                Intreaba Expert BIM despre acest BEP &rarr;
+              </button>
+            )}
+          </div>
           <div className="bep-rendered">
             <Markdown remarkPlugins={[remarkGfm]}>{result}</Markdown>
           </div>

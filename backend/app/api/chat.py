@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    project_id: int | None = None
+    project_id: str | None = None
     message: str
 
 

@@ -9,23 +9,29 @@ from app.ai_client import call_llm_chat_expert
 
 logger = logging.getLogger(__name__)
 
-# Stub: în viitor va citi din DB BEP-ul generat pentru proiect
-_BEP_STORE: dict[int, str] = {}
+# In-memory BEP store keyed by project_code (string)
+_BEP_STORE: dict[str, str] = {}
 
 
-def _get_bep_for_project(project_id: int | None) -> str:
-    """Returnează BEP-ul stocat pentru un proiect (stub)."""
-    if project_id is not None and project_id in _BEP_STORE:
+def _get_bep_for_project(project_id: str | None) -> str:
+    """Returnează BEP-ul stocat pentru un proiect."""
+    if project_id and project_id in _BEP_STORE:
         return _BEP_STORE[project_id]
     return ""
 
 
-def store_bep(project_id: int, bep_content: str) -> None:
-    """Stochează un BEP generat (stub in-memory)."""
+def store_bep(project_id: str, bep_content: str) -> None:
+    """Stochează un BEP generat (in-memory)."""
     _BEP_STORE[project_id] = bep_content
+    logger.info(f"BEP stored for project '{project_id}' ({len(bep_content)} chars)")
 
 
-async def chat_expert(project_id: int | None, message: str) -> str:
+def get_stored_projects() -> list[str]:
+    """Returnează lista de project_codes cu BEP stocat."""
+    return list(_BEP_STORE.keys())
+
+
+async def chat_expert(project_id: str | None, message: str) -> str:
     """
     Răspunde la o întrebare BIM folosind context din BEP + standarde.
 
