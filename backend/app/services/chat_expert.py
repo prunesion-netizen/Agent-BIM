@@ -26,6 +26,11 @@ def store_bep(project_id: str, bep_content: str) -> None:
     logger.info(f"BEP stored for project '{project_id}' ({len(bep_content)} chars)")
 
 
+def get_bep_content(project_code: str) -> str | None:
+    """Returnează conținutul BEP pentru un proiect (sau None)."""
+    return _BEP_STORE.get(project_code)
+
+
 def get_stored_projects() -> list[str]:
     """Returnează lista de project_codes cu BEP stocat."""
     return list(_BEP_STORE.keys())

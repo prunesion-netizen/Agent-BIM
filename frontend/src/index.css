@@ -516,6 +516,27 @@ body {
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
 }
 
+.btn-download {
+  padding: 8px 18px;
+  background: linear-gradient(135deg, var(--green-50), #d1fae5);
+  color: var(--green-600);
+  border: 1.5px solid #86efac;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-download:hover {
+  background: #d1fae5;
+  border-color: #4ade80;
+  color: #15803d;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+}
+
 .demo-result h3::before {
   content: '';
   display: inline-block;

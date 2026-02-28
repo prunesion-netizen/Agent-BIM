@@ -118,6 +118,26 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
     }
   }
 
+  async function handleDownloadDocx() {
+    try {
+      const res = await fetch(`/api/export-bep-docx/${encodeURIComponent(ctx.project_code)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        setError(err.detail || `Eroare la descarcarea DOCX: ${res.status}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `BEP_${ctx.project_code}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Eroare la descarcarea DOCX");
+    }
+  }
+
   return (
     <div className="demo-container">
       <header className="demo-header">
@@ -152,11 +172,16 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
         <div className="demo-result">
           <div className="demo-result-header">
             <h3>BEP generat</h3>
-            {onGoToChat && (
-              <button className="btn-chat-link" onClick={onGoToChat}>
-                Intreaba Expert BIM despre acest BEP &rarr;
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button className="btn-download" onClick={handleDownloadDocx}>
+                Descarca DOCX
               </button>
-            )}
+              {onGoToChat && (
+                <button className="btn-chat-link" onClick={onGoToChat}>
+                  Intreaba Expert BIM despre acest BEP &rarr;
+                </button>
+              )}
+            </div>
           </div>
           <div className="bep-rendered">
             <Markdown remarkPlugins={[remarkGfm]}>{result}</Markdown>
