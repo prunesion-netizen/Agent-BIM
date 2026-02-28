@@ -13,6 +13,7 @@ from app.schemas.project_context import ProjectContext
 from app.services.bep_generator import generate_bep
 from app.services.bep_docx_exporter import markdown_to_docx
 from app.services.chat_expert import store_bep, get_bep_content, get_stored_projects
+from app.api.bep_verification import store_project_context
 
 router = APIRouter()
 
@@ -30,6 +31,11 @@ def api_generate_bep(project_context: ProjectContext):
         result = generate_bep(project_context)
         # Auto-store BEP for Chat Expert context
         store_bep(result["project_code"], result["bep_markdown"])
+        # Auto-store ProjectContext for BEP Verifier
+        store_project_context(
+            result["project_code"],
+            project_context.model_dump(mode="json"),
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

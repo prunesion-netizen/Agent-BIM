@@ -26,26 +26,46 @@ interface VerificationResult {
   };
 }
 
-const DISCIPLINE_OPTIONS = [
-  "Arhitectura",
-  "Structura",
-  "Instalatii HVAC",
-  "Instalatii electrice",
-  "Instalatii sanitare",
-  "Peisagistica",
-  "Drumuri si utilitati",
+interface CategoryRow {
+  name: string;
+  element_count: string;
+}
+
+/* ── Options matching backend Literal types ── */
+const SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: "revit", label: "Revit" },
+  { value: "ifc", label: "IFC" },
+  { value: "other", label: "Altul" },
 ];
 
-const FORMAT_OPTIONS = ["IFC 2x3", "IFC 4", "NWD", "NWC", "RVT", "DWG"];
+const DISCIPLINE_OPTIONS: { value: string; label: string }[] = [
+  { value: "architecture", label: "Arhitectura" },
+  { value: "structure", label: "Structura" },
+  { value: "mep", label: "MEP (HVAC/Electrice/Sanitare)" },
+  { value: "civil", label: "Civil" },
+  { value: "roads", label: "Drumuri" },
+  { value: "infrastructure", label: "Infrastructura" },
+  { value: "other", label: "Altele" },
+];
+
+const FORMAT_OPTIONS: { value: string; label: string }[] = [
+  { value: "ifc4_3", label: "IFC 4.3" },
+  { value: "ifc2x3", label: "IFC 2x3" },
+  { value: "nwd", label: "NWD" },
+  { value: "nwc", label: "NWC" },
+  { value: "dwg", label: "DWG" },
+  { value: "other", label: "Altul" },
+];
 
 export default function BepVerifier({ bepContext }: Props) {
+  const [source, setSource] = useState("revit");
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [formats, setFormats] = useState<string[]>([]);
   const [hasGeoref, setHasGeoref] = useState(false);
   const [coordSystem, setCoordSystem] = useState("");
-  const [lodInfo, setLodInfo] = useState("");
-  const [elementCategories, setElementCategories] = useState("");
-  const [additionalNotes, setAdditionalNotes] = useState("");
+  const [lodAvailable, setLodAvailable] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
 
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,6 +73,20 @@ export default function BepVerifier({ bepContext }: Props) {
 
   function toggleItem(list: string[], item: string, setter: (v: string[]) => void) {
     setter(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
+  }
+
+  function addCategory() {
+    setCategories([...categories, { name: "", element_count: "" }]);
+  }
+
+  function updateCategory(idx: number, field: keyof CategoryRow, value: string) {
+    const updated = [...categories];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setCategories(updated);
+  }
+
+  function removeCategory(idx: number) {
+    setCategories(categories.filter((_, i) => i !== idx));
   }
 
   async function handleVerify() {
@@ -69,26 +103,28 @@ export default function BepVerifier({ bepContext }: Props) {
     setError(null);
     setResult(null);
 
-    const modelSummary: Record<string, unknown> = {
+    const modelSummary = {
+      source,
       disciplines_present: disciplines,
-      exchange_formats_available: formats,
-      has_georeferencing: hasGeoref,
+      categories: categories
+        .filter((c) => c.name.trim())
+        .map((c) => ({
+          name: c.name.trim(),
+          element_count: parseInt(c.element_count, 10) || 0,
+        })),
+      has_georeference: hasGeoref,
       coordinate_system: coordSystem || null,
-      lod_loi_info: lodInfo || null,
-      element_categories: elementCategories
-        ? elementCategories.split(",").map((s) => s.trim()).filter(Boolean)
-        : [],
-      additional_notes: additionalNotes || null,
+      exchange_formats_available: formats,
+      lod_info_available: lodAvailable,
+      notes: notes || null,
     };
 
     try {
-      const res = await fetch("/api/verify-bep", {
+      const projectId = encodeURIComponent(bepContext.projectCode);
+      const res = await fetch(`/api/projects/${projectId}/verify-bep-model`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_code: bepContext.projectCode,
-          model_summary: modelSummary,
-        }),
+        body: JSON.stringify(modelSummary),
       });
 
       if (!res.ok) {
@@ -113,7 +149,7 @@ export default function BepVerifier({ bepContext }: Props) {
 
   function statusLabel(status: string) {
     if (status === "pass") return "Conform";
-    if (status === "warning") return "Atenție";
+    if (status === "warning") return "Atentie";
     return "Neconform";
   }
 
@@ -122,7 +158,10 @@ export default function BepVerifier({ bepContext }: Props) {
       {/* Header */}
       <header className="verifier-header">
         <div className="demo-brand">
-          <div className="demo-logo" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
+          <div
+            className="demo-logo"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
+          >
             QC
           </div>
           <div>
@@ -140,8 +179,8 @@ export default function BepVerifier({ bepContext }: Props) {
         </div>
       ) : (
         <div className="verifier-no-bep">
-          Nu exista BEP generat. Mergi la tab-ul <strong>Fisa BEP</strong> si genereaza
-          un BEP mai intai.
+          Nu exista BEP generat. Mergi la tab-ul <strong>Fisa BEP</strong> si genereaza un
+          BEP mai intai.
         </div>
       )}
 
@@ -150,38 +189,55 @@ export default function BepVerifier({ bepContext }: Props) {
         <fieldset className="pcf-section">
           <legend>Rezumat Model BIM</legend>
 
-          <div className="pcf-field full">
+          {/* Source */}
+          <div className="pcf-grid">
+            <div className="pcf-field">
+              <span>Sursa modelului</span>
+              <select value={source} onChange={(e) => setSource(e.target.value)}>
+                {SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Disciplines */}
+          <div className="pcf-field full" style={{ marginTop: 16 }}>
             <span>Discipline prezente in model</span>
             <div className="pcf-check-row">
               {DISCIPLINE_OPTIONS.map((d) => (
-                <label key={d} className="pcf-pill">
+                <label key={d.value} className="pcf-pill">
                   <input
                     type="checkbox"
-                    checked={disciplines.includes(d)}
-                    onChange={() => toggleItem(disciplines, d, setDisciplines)}
+                    checked={disciplines.includes(d.value)}
+                    onChange={() => toggleItem(disciplines, d.value, setDisciplines)}
                   />
-                  {d}
+                  {d.label}
                 </label>
               ))}
             </div>
           </div>
 
+          {/* Exchange formats */}
           <div className="pcf-field full" style={{ marginTop: 16 }}>
             <span>Formate de schimb disponibile</span>
             <div className="pcf-check-row">
               {FORMAT_OPTIONS.map((f) => (
-                <label key={f} className="pcf-pill">
+                <label key={f.value} className="pcf-pill">
                   <input
                     type="checkbox"
-                    checked={formats.includes(f)}
-                    onChange={() => toggleItem(formats, f, setFormats)}
+                    checked={formats.includes(f.value)}
+                    onChange={() => toggleItem(formats, f.value, setFormats)}
                   />
-                  {f}
+                  {f.label}
                 </label>
               ))}
             </div>
           </div>
 
+          {/* Georef + Coord + LOD */}
           <div className="pcf-grid" style={{ marginTop: 16 }}>
             <label className="pcf-field pcf-checkbox">
               <input
@@ -202,32 +258,57 @@ export default function BepVerifier({ bepContext }: Props) {
               />
             </div>
 
-            <div className="pcf-field">
-              <span>Informatii LOD/LOI</span>
+            <label className="pcf-field pcf-checkbox">
               <input
-                type="text"
-                value={lodInfo}
-                onChange={(e) => setLodInfo(e.target.value)}
-                placeholder="ex: LOD 300 general, LOD 350 structura"
+                type="checkbox"
+                checked={lodAvailable}
+                onChange={() => setLodAvailable(!lodAvailable)}
               />
-            </div>
-
-            <div className="pcf-field">
-              <span>Categorii de elemente (separate prin virgula)</span>
-              <input
-                type="text"
-                value={elementCategories}
-                onChange={(e) => setElementCategories(e.target.value)}
-                placeholder="ex: Walls, Floors, Columns, Beams, Ducts"
-              />
-            </div>
+              <span>Informatii LOD/LOI disponibile</span>
+            </label>
           </div>
 
+          {/* Categories */}
+          <div className="pcf-field full" style={{ marginTop: 16 }}>
+            <span>Categorii de elemente (optional)</span>
+            {categories.map((cat, idx) => (
+              <div key={idx} className="verifier-cat-row">
+                <input
+                  type="text"
+                  value={cat.name}
+                  onChange={(e) => updateCategory(idx, "name", e.target.value)}
+                  placeholder="Categorie (ex: Walls)"
+                  className="verifier-cat-name"
+                />
+                <input
+                  type="number"
+                  value={cat.element_count}
+                  onChange={(e) => updateCategory(idx, "element_count", e.target.value)}
+                  placeholder="Nr. elemente"
+                  className="verifier-cat-count"
+                  min={0}
+                />
+                <button
+                  type="button"
+                  className="verifier-cat-remove"
+                  onClick={() => removeCategory(idx)}
+                  title="Sterge"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+            <button type="button" className="btn-outline verifier-cat-add" onClick={addCategory}>
+              + Adauga categorie
+            </button>
+          </div>
+
+          {/* Notes */}
           <div className="pcf-field full" style={{ marginTop: 16 }}>
             <span>Observatii suplimentare</span>
             <textarea
-              value={additionalNotes}
-              onChange={(e) => setAdditionalNotes(e.target.value)}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Orice detalii suplimentare despre modelul BIM..."
               rows={3}
             />
@@ -241,9 +322,13 @@ export default function BepVerifier({ bepContext }: Props) {
           className="btn-primary"
           onClick={handleVerify}
           disabled={loading || !bepContext}
-          style={bepContext ? { background: "linear-gradient(135deg, #7c3aed, #4f46e5)" } : undefined}
+          style={
+            bepContext
+              ? { background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }
+              : undefined
+          }
         >
-          {loading ? "Se verifica..." : "Verifica conformitatea"}
+          {loading ? "Se verifica..." : "Ruleaza verificarea"}
         </button>
       </div>
 
@@ -261,9 +346,8 @@ export default function BepVerifier({ bepContext }: Props) {
             <div className="verifier-summary-text">
               <strong>Status general: {statusLabel(result.summary.overall_status)}</strong>
               <span>
-                {result.summary.total_checks} verificari:{" "}
-                {result.summary.pass_count} conforme, {result.summary.warning_count} atentionari,{" "}
-                {result.summary.fail_count} neconforme
+                {result.summary.total_checks} verificari: {result.summary.pass_count} conforme,{" "}
+                {result.summary.warning_count} atentionari, {result.summary.fail_count} neconforme
               </span>
             </div>
           </div>
