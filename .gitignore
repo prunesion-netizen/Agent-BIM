@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment
+.env
+
+# Vector DB (generat de bim_ingest.py — nu se versionează)
+chroma_db/
+
+# Documente sursă BIM (volum mare, se gestionează separat)
+BIM/
+Ghizela/
+
+# Documente generate de agent
+generated/
+
+# Loguri
+*.log
+app_log.txt
+app_startup.log
+ingest_log.txt
+server.log
+ingest_ghizela.txt
+bim_requirements_ghizela.txt
+
+# Artefacte Windows
+nul
+
+# Resurse externe
+NotebookLM Mind Map.png
+
+# Fișiere generate one-off
+BEP_Ghizela_Celula3.docx
