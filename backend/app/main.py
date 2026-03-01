@@ -64,6 +64,7 @@ from app.api import chat  # noqa: E402
 from app.api import verifier  # noqa: E402
 from app.api import bep_verification  # noqa: E402
 from app.api import projects_dashboard  # noqa: E402
+from app.api import model_import  # noqa: E402
 
 app.include_router(projects_dashboard.router, prefix="/api", tags=["Projects Dashboard"])
 app.include_router(projects.router, prefix="/api", tags=["Projects"])
@@ -71,3 +72,4 @@ app.include_router(bep.router, prefix="/api", tags=["BEP Generator"])
 app.include_router(chat.router, prefix="/api", tags=["Chat Expert"])
 app.include_router(verifier.router, prefix="/api", tags=["BEP Verifier"])
 app.include_router(bep_verification.router, prefix="/api", tags=["BEP Verification"])
+app.include_router(model_import.router, prefix="/api", tags=["Model Import"])
