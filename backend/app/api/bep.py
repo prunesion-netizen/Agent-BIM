@@ -14,18 +14,20 @@ Endpoint nou (project-scoped):
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from app.db import get_db
 from app.schemas.project_context import ProjectContext
-from app.schemas.project import ProjectRead, GeneratedDocumentRead
+from app.schemas.converters import project_model_to_read, document_model_to_read
 from app.services.bep_generator import generate_bep
 from app.services.bep_docx_exporter import markdown_to_docx
 from app.services.chat_expert import store_bep, get_bep_content, get_stored_projects
-from app.models.repository import (
-    get_project, save_project_context, save_document,
-    get_latest_document,
+from app.repositories.projects_repository import (
+    get_project, save_project_context, save_generated_document,
+    get_latest_generated_document,
 )
 from app.services.project_status import on_context_saved, on_bep_generated
 
@@ -38,7 +40,11 @@ router = APIRouter()
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/projects/{project_id}/generate-bep")
-def api_generate_bep_for_project(project_id: int, project_context: ProjectContext):
+def api_generate_bep_for_project(
+    project_id: int,
+    project_context: ProjectContext,
+    db: Session = Depends(get_db),
+):
     """
     Generează un BEP pentru un proiect specific.
 
@@ -47,34 +53,35 @@ def api_generate_bep_for_project(project_id: int, project_context: ProjectContex
     - Salvează BEP ca GeneratedDocument (doc_type="bep")
     - Sincronizează cu store-ul legacy pentru Chat Expert
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
 
     try:
         # Salvează ProjectContext
-        save_project_context(project_id, project_context.model_dump(mode="json"))
-        on_context_saved(project_id)
+        save_project_context(db, project_id, project_context)
+        on_context_saved(db, project_id)
 
         # Generează BEP
         result = generate_bep(project_context)
         bep_markdown = result["bep_markdown"]
 
         # Salvează ca GeneratedDocument
-        doc = save_document(
+        doc = save_generated_document(
+            db,
             project_id=project_id,
             doc_type="bep",
             title=f"BEP {project.code} {project_context.bep_version}",
             content_markdown=bep_markdown,
             version=project_context.bep_version,
         )
-        on_bep_generated(project_id)
+        on_bep_generated(db, project_id)
 
         # Sincronizează cu store-ul legacy (pentru Chat Expert)
         store_bep(project.code, bep_markdown)
 
         # Re-fetch project for updated status
-        project = get_project(project_id)
+        project = get_project(db, project_id)
 
         logger.info(
             f"BEP generat pentru proiectul {project_id} ({project.code}), "
@@ -82,9 +89,9 @@ def api_generate_bep_for_project(project_id: int, project_context: ProjectContex
         )
 
         return {
-            "project": ProjectRead(**project.to_dict()),
+            "project": project_model_to_read(project),
             "project_context": project_context.model_dump(mode="json"),
-            "bep_document": GeneratedDocumentRead(**doc.to_dict()),
+            "bep_document": document_model_to_read(doc),
         }
 
     except Exception as e:
@@ -93,13 +100,16 @@ def api_generate_bep_for_project(project_id: int, project_context: ProjectContex
 
 
 @router.get("/projects/{project_id}/export-bep-docx")
-def api_export_bep_docx_for_project(project_id: int):
+def api_export_bep_docx_for_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
     """Exportă BEP-ul unui proiect ca DOCX (din repository)."""
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
 
-    bep_doc = get_latest_document(project_id, "bep")
+    bep_doc = get_latest_generated_document(db, project_id, "bep")
     if not bep_doc:
         raise HTTPException(status_code=404, detail="Nu exista BEP generat pentru acest proiect.")
 

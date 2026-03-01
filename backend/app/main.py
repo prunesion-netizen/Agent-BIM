@@ -3,13 +3,26 @@ Agent BIM Romania — FastAPI Backend
 Punct de intrare principal. Configurare CORS, rutare, healthcheck.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.db import Base, engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Crează tabelele la startup (dacă nu există deja)
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="Agent BIM Romania API",
     description="Backend API pentru management BIM conform ISO 19650",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────

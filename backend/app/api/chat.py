@@ -6,11 +6,15 @@ Acceptă project_id (int) — citește BEP din repository.
 Fallback la project_code (string) din legacy store.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.services.chat_expert import chat_expert
-from app.models.repository import get_project, get_latest_document
+from app.db import get_db
+from app.services.chat_expert import chat_expert, store_bep
+from app.repositories.projects_repository import (
+    get_project, get_latest_generated_document,
+)
 
 router = APIRouter()
 
@@ -25,7 +29,7 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat-expert", response_model=ChatResponse)
-async def api_chat_expert(req: ChatRequest):
+async def api_chat_expert(req: ChatRequest, db: Session = Depends(get_db)):
     """
     Răspunde la o întrebare BIM folosind contextul proiectului.
 
@@ -38,13 +42,12 @@ async def api_chat_expert(req: ChatRequest):
     # Rezolvă project_code din project_id
     project_code: str | None = None
     if req.project_id is not None:
-        project = get_project(req.project_id)
+        project = get_project(db, req.project_id)
         if project:
             project_code = project.code
             # Dacă BEP-ul e în repository dar nu în legacy store, sincronizăm
-            bep_doc = get_latest_document(req.project_id, "bep")
+            bep_doc = get_latest_generated_document(db, req.project_id, "bep")
             if bep_doc:
-                from app.services.chat_expert import store_bep
                 store_bep(project.code, bep_doc.content_markdown)
 
     try:

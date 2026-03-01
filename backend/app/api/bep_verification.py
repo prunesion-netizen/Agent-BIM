@@ -11,14 +11,15 @@ POST /api/projects/{project_id}/verify-bep-model
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.db import get_db
 from app.schemas.model_summary import ModelSummary
-from app.schemas.project import GeneratedDocumentRead
 from app.ai_client import call_llm_bep_verifier
-from app.models.repository import (
-    get_project, get_latest_document, get_latest_project_context,
-    save_document,
+from app.repositories.projects_repository import (
+    get_project, get_latest_generated_document, get_latest_project_context,
+    save_generated_document,
 )
 from app.services.project_status import on_bep_verified
 # Legacy bridge
@@ -29,7 +30,11 @@ router = APIRouter()
 
 
 @router.post("/projects/{project_id}/verify-bep-model")
-def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
+def api_verify_bep_model(
+    project_id: int,
+    model_summary: ModelSummary,
+    db: Session = Depends(get_db),
+):
     """
     Verifică conformitatea BEP vs Model BIM pentru un proiect.
 
@@ -38,7 +43,7 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
     - Apelează Claude cu verification_context
     - Salvează raportul ca GeneratedDocument (doc_type="bep_verification_report")
     """
-    project = get_project(project_id)
+    project = get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=404, detail=f"Proiectul {project_id} nu exista."
@@ -46,7 +51,7 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
 
     # 1) Citește BEP-ul — din repository sau legacy store
     bep_content = None
-    bep_doc = get_latest_document(project_id, "bep")
+    bep_doc = get_latest_generated_document(db, project_id, "bep")
     if bep_doc:
         bep_content = bep_doc.content_markdown
     else:
@@ -63,7 +68,7 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
         )
 
     # 2) Citește ProjectContext
-    ctx_entry = get_latest_project_context(project_id)
+    ctx_entry = get_latest_project_context(db, project_id)
     project_context = ctx_entry.context_json if ctx_entry else {}
 
     # 3) Construiește verification_context
@@ -90,7 +95,8 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
 
     # 5) Salvează raportul ca GeneratedDocument
     report_md = result.get("report_markdown", "")
-    doc = save_document(
+    doc = save_generated_document(
+        db,
         project_id=project_id,
         doc_type="bep_verification_report",
         title=f"Raport verificare BEP vs Model - {project.code}",
@@ -99,7 +105,7 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
 
     # 6) Actualizează status proiect
     checks = result.get("checks", [])
-    on_bep_verified(project_id, checks)
+    on_bep_verified(db, project_id, checks)
 
     logger.info(f"Raport verificare salvat: document_id={doc.id}")
 
