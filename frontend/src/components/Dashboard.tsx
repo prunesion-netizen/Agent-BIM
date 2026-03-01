@@ -3,28 +3,23 @@ import StatusBadge from "./StatusBadge";
 
 /* ── Types ── */
 
-interface LatestVerificationInfo {
-  summary_status: string | null;
-  fail_count: number | null;
-  warning_count: number | null;
-  created_at: string;
-}
-
-interface ProjectOverviewItem {
+export type ProjectOverview = {
   id: number;
   name: string;
   code: string;
-  client_name: string | null;
-  project_type: string | null;
+  client_name?: string | null;
+  project_type?: string | null;
   status: string;
-  created_at: string;
-  updated_at: string;
-  has_context: boolean;
   has_bep: boolean;
-  bep_version: string | null;
-  verification_count: number;
-  latest_verification: LatestVerificationInfo | null;
-}
+  bep_version?: string | null;
+  last_bep_generated_at?: string | null;
+  has_verifications: boolean;
+  last_verification_at?: string | null;
+  last_verification_status?: "pass" | "partial" | "fail" | null;
+  last_verification_fail_count?: number | null;
+  last_verification_warning_count?: number | null;
+  updated_at: string;
+};
 
 type TargetTab = "bep" | "chat" | "verifier";
 
@@ -43,30 +38,44 @@ const PROJECT_TYPE_LABELS: Record<string, string> = {
   mixed_use: "Mixt",
 };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleDateString("ro-RO", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("ro-RO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
-function getVerifBadgeClass(status: string | null): string {
+function formatBepCell(p: ProjectOverview): string {
+  if (!p.has_bep) return "—";
+  const ver = p.bep_version ? `v${p.bep_version}` : "BEP";
+  const date = formatDate(p.last_bep_generated_at);
+  return date !== "—" ? `${ver} – ${date}` : ver;
+}
+
+function formatVerifCell(p: ProjectOverview): string {
+  if (!p.has_verifications) return "—";
+  const status = p.last_verification_status ?? "—";
+  const f = p.last_verification_fail_count ?? 0;
+  const w = p.last_verification_warning_count ?? 0;
+  const counts = f || w ? ` (${f}F/${w}W)` : "";
+  const date = formatDate(p.last_verification_at);
+  return `${status}${counts} – ${date}`;
+}
+
+function getVerifBadgeClass(status: string | null | undefined): string {
   if (status === "pass") return "dashboard-verif-pass";
-  if (status === "warning") return "dashboard-verif-warning";
+  if (status === "warning" || status === "partial") return "dashboard-verif-warning";
   if (status === "fail") return "dashboard-verif-fail";
   return "dashboard-verif-none";
-}
-
-function getVerifLabel(status: string | null): string {
-  if (status === "pass") return "OK";
-  if (status === "warning") return "Atenție";
-  if (status === "fail") return "Eșuat";
-  return "—";
 }
 
 /* ── Component ── */
 
 export default function Dashboard({ onSelectProject }: Props) {
-  const [items, setItems] = useState<ProjectOverviewItem[]>([]);
+  const [items, setItems] = useState<ProjectOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,9 +88,9 @@ export default function Dashboard({ onSelectProject }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects-overview");
+      const res = await fetch("/api/projects/overview");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ProjectOverviewItem[] = await res.json();
+      const data: ProjectOverview[] = await res.json();
       setItems(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Eroare la încărcare");
@@ -111,12 +120,13 @@ export default function Dashboard({ onSelectProject }: Props) {
   const total = items.length;
   const withBep = items.filter((p) => p.has_bep).length;
   const verifiedOk = items.filter(
-    (p) => p.latest_verification?.summary_status === "pass"
+    (p) => p.last_verification_status === "pass"
   ).length;
-  const withIssues = items.filter((p) => {
-    const v = p.latest_verification;
-    return v && (v.summary_status === "fail" || v.summary_status === "warning");
-  }).length;
+  const withIssues = items.filter(
+    (p) =>
+      p.last_verification_status === "fail" ||
+      p.last_verification_status === "partial"
+  ).length;
 
   // Unique project types for filter dropdown
   const projectTypes = Array.from(
@@ -129,7 +139,7 @@ export default function Dashboard({ onSelectProject }: Props) {
         <div className="demo-brand">
           <div className="demo-logo">▦</div>
           <div>
-            <h1>Dashboard Proiecte BIM</h1>
+            <h1>Proiecte BIM</h1>
             <p className="demo-subtitle">
               Vedere de ansamblu a tuturor proiectelor
             </p>
@@ -148,11 +158,15 @@ export default function Dashboard({ onSelectProject }: Props) {
           <div className="dashboard-stat-label">Cu BEP Generat</div>
         </div>
         <div className="dashboard-stat-card">
-          <div className="dashboard-stat-value dashboard-stat-ok">{verifiedOk}</div>
+          <div className="dashboard-stat-value dashboard-stat-ok">
+            {verifiedOk}
+          </div>
           <div className="dashboard-stat-label">Verificate OK</div>
         </div>
         <div className="dashboard-stat-card">
-          <div className="dashboard-stat-value dashboard-stat-warn">{withIssues}</div>
+          <div className="dashboard-stat-value dashboard-stat-warn">
+            {withIssues}
+          </div>
           <div className="dashboard-stat-label">Cu Probleme</div>
         </div>
       </div>
@@ -190,20 +204,38 @@ export default function Dashboard({ onSelectProject }: Props) {
             </option>
           ))}
         </select>
-        <button className="btn-outline btn-sm" onClick={loadData} disabled={loading}>
+        <button
+          className="btn-outline btn-sm"
+          onClick={loadData}
+          disabled={loading}
+        >
           ↻ Reîncarcă
         </button>
       </div>
 
       {/* Error / Loading */}
-      {error && <p style={{ color: "var(--red-500)", marginTop: 12 }}>{error}</p>}
+      {error && (
+        <p style={{ color: "var(--red-500)", marginTop: 12 }}>{error}</p>
+      )}
 
       {loading ? (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 32,
+            color: "var(--gray-500)",
+          }}
+        >
           Se încarcă proiectele...
         </p>
       ) : filtered.length === 0 ? (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: 32,
+            color: "var(--gray-500)",
+          }}
+        >
           {items.length === 0
             ? "Nu există proiecte. Creează primul proiect din tab-ul Fișa BEP."
             : "Niciun proiect nu corespunde filtrelor."}
@@ -216,10 +248,9 @@ export default function Dashboard({ onSelectProject }: Props) {
                 <th>Proiect</th>
                 <th>Client</th>
                 <th>Tip</th>
-                <th>Status</th>
+                <th>Status BIM</th>
                 <th>BEP</th>
-                <th>Verificare</th>
-                <th>Ultima actualizare</th>
+                <th>Ultima verificare</th>
                 <th>Acțiuni</th>
               </tr>
             </thead>
@@ -233,48 +264,35 @@ export default function Dashboard({ onSelectProject }: Props) {
                     </div>
                   </td>
                   <td>{p.client_name ?? "—"}</td>
-                  <td>{p.project_type ? (PROJECT_TYPE_LABELS[p.project_type] ?? p.project_type) : "—"}</td>
+                  <td>
+                    {p.project_type
+                      ? (PROJECT_TYPE_LABELS[p.project_type] ?? p.project_type)
+                      : "—"}
+                  </td>
                   <td>
                     <StatusBadge status={p.status} />
                   </td>
                   <td>
-                    <span className={p.has_bep ? "dashboard-bep-yes" : "dashboard-bep-no"}>
-                      {p.has_bep ? "Da" : "Nu"}
-                    </span>
-                    {p.bep_version && (
-                      <span className="dashboard-bep-version">v{p.bep_version}</span>
+                    {p.has_bep ? (
+                      <span className="dashboard-bep-yes">
+                        {formatBepCell(p)}
+                      </span>
+                    ) : (
+                      <span className="dashboard-bep-no">—</span>
                     )}
                   </td>
                   <td>
-                    {p.latest_verification ? (
+                    {p.has_verifications ? (
                       <div className="dashboard-verif-cell">
-                        <span className={`dashboard-verif-badge ${getVerifBadgeClass(p.latest_verification.summary_status)}`}>
-                          {getVerifLabel(p.latest_verification.summary_status)}
+                        <span
+                          className={`dashboard-verif-badge ${getVerifBadgeClass(p.last_verification_status)}`}
+                        >
+                          {formatVerifCell(p)}
                         </span>
-                        {(p.latest_verification.fail_count != null ||
-                          p.latest_verification.warning_count != null) && (
-                          <span className="dashboard-verif-counts">
-                            {p.latest_verification.fail_count
-                              ? `${p.latest_verification.fail_count}F`
-                              : ""}
-                            {p.latest_verification.fail_count &&
-                            p.latest_verification.warning_count
-                              ? " / "
-                              : ""}
-                            {p.latest_verification.warning_count
-                              ? `${p.latest_verification.warning_count}W`
-                              : ""}
-                          </span>
-                        )}
                       </div>
                     ) : (
                       <span className="dashboard-verif-none-text">—</span>
                     )}
-                  </td>
-                  <td>
-                    <span className="dashboard-date-cell">
-                      {formatDate(p.updated_at)}
-                    </span>
                   </td>
                   <td>
                     <div className="dashboard-actions">
@@ -283,7 +301,7 @@ export default function Dashboard({ onSelectProject }: Props) {
                         onClick={() => onSelectProject(p.id, "bep")}
                         title="Deschide Fișa BEP"
                       >
-                        Fișa BEP
+                        Deschide
                       </button>
                       {p.has_bep && (
                         <button

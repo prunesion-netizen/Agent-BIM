@@ -93,7 +93,7 @@ class LatestVerificationInfo(BaseModel):
 
 
 class ProjectOverviewItem(BaseModel):
-    """Element de overview pentru Dashboard — proiect + date agregate."""
+    """Element de overview pentru Dashboard (deprecated, use ProjectOverview)."""
     id: int
     name: str
     code: str
@@ -107,6 +107,25 @@ class ProjectOverviewItem(BaseModel):
     bep_version: str | None = None
     verification_count: int = 0
     latest_verification: LatestVerificationInfo | None = None
+
+
+class ProjectOverview(BaseModel):
+    """Overview proiect pentru Dashboard — câmpuri flatten."""
+    id: int
+    name: str
+    code: str
+    client_name: str | None = None
+    project_type: str | None = None
+    status: str = "new"
+    has_bep: bool = False
+    bep_version: str | None = None
+    last_bep_generated_at: str | None = None
+    has_verifications: bool = False
+    last_verification_at: str | None = None
+    last_verification_status: str | None = None
+    last_verification_fail_count: int | None = None
+    last_verification_warning_count: int | None = None
+    updated_at: str
 
 
 # ── ProjectContextRead ───────────────────────────────────────────────────────
