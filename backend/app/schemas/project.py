@@ -29,6 +29,7 @@ class ProjectCreate(BaseModel):
     code: str = Field(..., min_length=1, description="Cod intern proiect")
     client_name: str | None = Field(None, description="Numele beneficiarului")
     project_type: str | None = Field(None, description="Tipul de proiect")
+    description: str | None = Field(None, description="Descriere proiect")
 
 
 class ProjectRead(BaseModel):
@@ -38,6 +39,7 @@ class ProjectRead(BaseModel):
     code: str
     client_name: str | None = None
     project_type: str | None = None
+    description: str | None = None
     status: str = "new"
     created_at: str
     updated_at: str

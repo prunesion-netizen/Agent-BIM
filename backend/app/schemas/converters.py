@@ -27,6 +27,7 @@ def project_model_to_read(p: ProjectModel) -> ProjectRead:
         code=p.code,
         client_name=p.client_name,
         project_type=p.project_type,
+        description=p.description,
         status=p.status,
         created_at=p.created_at.isoformat() if p.created_at else "",
         updated_at=p.updated_at.isoformat() if p.updated_at else "",

@@ -37,6 +37,7 @@ class ProjectModel(Base):
     code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     client_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     project_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="new")
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

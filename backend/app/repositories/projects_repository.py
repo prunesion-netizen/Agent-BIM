@@ -29,6 +29,7 @@ def create_project(db: Session, data: ProjectCreate) -> ProjectModel:
         code=data.code,
         client_name=data.client_name,
         project_type=data.project_type,
+        description=data.description,
     )
     db.add(project)
     db.flush()
