@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
 import { ProjectProvider, useProject } from "./contexts/ProjectProvider";
 import ProjectSelector from "./components/ProjectSelector";
+import Dashboard from "./components/Dashboard";
 import ProjectContextFormDemo from "./components/ProjectContextFormDemo";
 import ChatExpert from "./components/ChatExpert";
 import BepVerifier from "./components/BepVerifier";
 
-type Tab = "bep" | "chat" | "verifier";
+type Tab = "dashboard" | "bep" | "chat" | "verifier";
 
 export interface BepContext {
   projectCode: string;
@@ -14,9 +15,9 @@ export interface BepContext {
 }
 
 function AppContent() {
-  const [tab, setTab] = useState<Tab>("bep");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [bepCtx, setBepCtx] = useState<BepContext | null>(null);
-  const { currentProject } = useProject();
+  const { currentProject, selectProject } = useProject();
 
   const handleBepGenerated = useCallback((ctx: BepContext) => {
     setBepCtx(ctx);
@@ -26,10 +27,25 @@ function AppContent() {
     setTab("chat");
   }, []);
 
+  const handleDashboardSelect = useCallback(
+    (projectId: number, targetTab: "bep" | "chat" | "verifier") => {
+      selectProject(projectId);
+      setTab(targetTab);
+    },
+    [selectProject],
+  );
+
   return (
     <div className="app-shell">
       <nav className="app-tabs">
         <div className="app-tabs-left">
+          <button
+            className={`app-tab ${tab === "dashboard" ? "active" : ""}`}
+            onClick={() => setTab("dashboard")}
+          >
+            <span className="app-tab-icon">&#9638;</span>
+            Dashboard
+          </button>
           <button
             className={`app-tab ${tab === "bep" ? "active" : ""}`}
             onClick={() => setTab("bep")}
@@ -61,6 +77,9 @@ function AppContent() {
       </nav>
 
       <main className="app-main">
+        {tab === "dashboard" && (
+          <Dashboard onSelectProject={handleDashboardSelect} />
+        )}
         {tab === "bep" && (
           <ProjectContextFormDemo
             onBepGenerated={handleBepGenerated}

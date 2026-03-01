@@ -82,6 +82,33 @@ class VerificationHistoryItem(BaseModel):
     warning_count: int | None = None
 
 
+# ── Dashboard Overview ────────────────────────────────────────────────────────
+
+class LatestVerificationInfo(BaseModel):
+    """Informații despre ultima verificare BEP."""
+    summary_status: str | None = None
+    fail_count: int | None = None
+    warning_count: int | None = None
+    created_at: str
+
+
+class ProjectOverviewItem(BaseModel):
+    """Element de overview pentru Dashboard — proiect + date agregate."""
+    id: int
+    name: str
+    code: str
+    client_name: str | None = None
+    project_type: str | None = None
+    status: str = "new"
+    created_at: str
+    updated_at: str
+    has_context: bool = False
+    has_bep: bool = False
+    bep_version: str | None = None
+    verification_count: int = 0
+    latest_verification: LatestVerificationInfo | None = None
+
+
 # ── ProjectContextRead ───────────────────────────────────────────────────────
 
 class ProjectContextRead(BaseModel):

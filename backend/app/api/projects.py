@@ -12,10 +12,11 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectRead,
-    ProjectDetailRead,
+    ProjectDetailRead, ProjectOverviewItem,
 )
 from app.schemas.converters import (
     project_model_to_read,
+    project_to_overview_item,
     context_model_to_read,
     document_model_to_read,
 )
@@ -23,6 +24,7 @@ from app.repositories.projects_repository import (
     create_project, get_project, list_projects, update_project,
     delete_project,
     get_latest_project_context, get_latest_generated_document,
+    get_projects_overview,
 )
 
 router = APIRouter()
@@ -58,6 +60,23 @@ def api_delete_project(project_id: int, db: Session = Depends(get_db)):
 def api_list_projects(db: Session = Depends(get_db)):
     """Returnează lista tuturor proiectelor."""
     return [project_model_to_read(p) for p in list_projects(db)]
+
+
+@router.get("/projects-overview", response_model=list[ProjectOverviewItem])
+def api_projects_overview(db: Session = Depends(get_db)):
+    """Dashboard overview — proiecte cu date agregate (BEP, verificări)."""
+    rows = get_projects_overview(db)
+    return [
+        project_to_overview_item(
+            p=row["project"],
+            has_context=row["has_context"],
+            has_bep=row["has_bep"],
+            bep_version=row["bep_version"],
+            verification_count=row["verification_count"],
+            latest_verification=row["latest_verification"],
+        )
+        for row in rows
+    ]
 
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailRead)
