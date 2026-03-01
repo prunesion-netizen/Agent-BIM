@@ -3,18 +3,29 @@ Agent BIM Romania — FastAPI Backend
 Punct de intrare principal. Configurare CORS, rutare, healthcheck.
 """
 
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db import Base, engine
+logger = logging.getLogger(__name__)
+
+
+def _run_migrations() -> None:
+    """Rulează Alembic upgrade head la startup."""
+    alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+    alembic_cfg = Config(str(alembic_ini))
+    command.upgrade(alembic_cfg, "head")
+    logger.info("Alembic migrations applied successfully.")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Crează tabelele la startup (dacă nu există deja)
-    Base.metadata.create_all(bind=engine)
+    _run_migrations()
     yield
 
 

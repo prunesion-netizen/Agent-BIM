@@ -8,7 +8,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "001_initial"
@@ -30,13 +29,13 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -48,11 +47,11 @@ def upgrade() -> None:
         "project_contexts",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),
-        sa.Column("context_json", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("context_json", sa.JSON(), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
@@ -74,7 +73,7 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.func.now(),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
