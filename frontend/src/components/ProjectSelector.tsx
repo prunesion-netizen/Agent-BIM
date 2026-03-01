@@ -81,6 +81,12 @@ export default function ProjectSelector() {
         </button>
       </div>
 
+      {currentProject?.description && (
+        <div className="project-description-bar">
+          {currentProject.description}
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
