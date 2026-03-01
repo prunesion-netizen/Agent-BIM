@@ -2,6 +2,7 @@ import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { BepContext } from "../App";
+import { useProject } from "../contexts/ProjectProvider";
 
 interface Props {
   bepContext?: BepContext | null;
@@ -59,6 +60,7 @@ const FORMAT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export default function BepVerifier({ bepContext, projectId }: Props) {
+  const { loadProjects } = useProject();
   const [source, setSource] = useState("revit");
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [formats, setFormats] = useState<string[]>([]);
@@ -138,6 +140,7 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
 
       const data: VerificationResult = await res.json();
       setResult(data);
+      loadProjects();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
     } finally {

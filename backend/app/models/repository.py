@@ -30,6 +30,7 @@ class ProjectRecord:
         self.code = code
         self.client_name = client_name
         self.project_type = project_type
+        self.status = "new"
         self.created_at = datetime.datetime.now(datetime.timezone.utc)
         self.updated_at = self.created_at
 
@@ -40,6 +41,7 @@ class ProjectRecord:
             "code": self.code,
             "client_name": self.client_name,
             "project_type": self.project_type,
+            "status": self.status,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
@@ -130,6 +132,15 @@ def get_project(project_id: int) -> ProjectRecord | None:
 def list_projects() -> list[ProjectRecord]:
     """Returnează toate proiectele, ordonate după created_at desc."""
     return sorted(_projects.values(), key=lambda p: p.created_at, reverse=True)
+
+
+def update_project_status(project_id: int, new_status: str) -> ProjectRecord | None:
+    """Actualizează statusul unui proiect și bumps updated_at."""
+    project = _projects.get(project_id)
+    if project:
+        project.status = new_status
+        project.updated_at = datetime.datetime.now(datetime.timezone.utc)
+    return project
 
 
 # ── CRUD ProjectContextEntry ─────────────────────────────────────────────────

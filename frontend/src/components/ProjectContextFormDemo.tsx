@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ProjectContextForm from "./ProjectContextForm";
+import StatusBadge from "./StatusBadge";
 import { createDefaultProjectContext, type ProjectContext } from "../types/projectContext";
 import { useProject } from "../contexts/ProjectProvider";
 import type { BepContext } from "../App";
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: Props) {
-  const { currentProject } = useProject();
+  const { currentProject, loadProjects } = useProject();
   const [ctx, setCtx] = useState<ProjectContext>(createDefaultProjectContext);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -176,6 +177,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
         projectName: currentProject.name,
         bepMarkdown: bepMd,
       });
+      loadProjects();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
     } finally {
@@ -213,7 +215,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
             <h1>Fisa de proiect BEP 2.0</h1>
             <p>
               {currentProject
-                ? `Proiect: ${currentProject.name} (${currentProject.code})`
+                ? <>Proiect: {currentProject.name} ({currentProject.code}) <StatusBadge status={currentProject.status} /></>
                 : "Selecteaza sau creeaza un proiect din bara de navigare"}
             </p>
           </div>

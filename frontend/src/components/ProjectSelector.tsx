@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useProject } from "../contexts/ProjectProvider";
+import StatusBadge from "./StatusBadge";
+import { getStatusInfo } from "../types/projectStatus";
 
 const PROJECT_TYPES = [
   { value: "building", label: "Cladire" },
@@ -62,10 +64,11 @@ export default function ProjectSelector() {
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name} ({p.code})
+                {p.name} ({p.code}) — {getStatusInfo(p.status).short}
               </option>
             ))}
           </select>
+          {currentProject && <StatusBadge status={currentProject.status} />}
         )}
 
         <button className="project-selector-new" onClick={() => setShowModal(true)}>

@@ -27,6 +27,7 @@ from app.models.repository import (
     get_project, save_project_context, save_document,
     get_latest_document,
 )
+from app.services.project_status import on_context_saved, on_bep_generated
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -53,6 +54,7 @@ def api_generate_bep_for_project(project_id: int, project_context: ProjectContex
     try:
         # Salvează ProjectContext
         save_project_context(project_id, project_context.model_dump(mode="json"))
+        on_context_saved(project_id)
 
         # Generează BEP
         result = generate_bep(project_context)
@@ -66,9 +68,13 @@ def api_generate_bep_for_project(project_id: int, project_context: ProjectContex
             content_markdown=bep_markdown,
             version=project_context.bep_version,
         )
+        on_bep_generated(project_id)
 
         # Sincronizează cu store-ul legacy (pentru Chat Expert)
         store_bep(project.code, bep_markdown)
+
+        # Re-fetch project for updated status
+        project = get_project(project_id)
 
         logger.info(
             f"BEP generat pentru proiectul {project_id} ({project.code}), "

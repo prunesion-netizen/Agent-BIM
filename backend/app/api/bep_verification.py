@@ -20,6 +20,7 @@ from app.models.repository import (
     get_project, get_latest_document, get_latest_project_context,
     save_document,
 )
+from app.services.project_status import on_bep_verified
 # Legacy bridge
 from app.services.chat_expert import get_bep_content
 
@@ -96,12 +97,16 @@ def api_verify_bep_model(project_id: int, model_summary: ModelSummary):
         content_markdown=report_md,
     )
 
+    # 6) Actualizează status proiect
+    checks = result.get("checks", [])
+    on_bep_verified(project_id, checks)
+
     logger.info(f"Raport verificare salvat: document_id={doc.id}")
 
-    # 6) Returnează rezultatul
+    # 7) Returnează rezultatul
     return {
         "report_markdown": report_md,
-        "checks": result.get("checks", []),
+        "checks": checks,
         "summary": result.get("summary", {}),
         "document_id": doc.id,
     }

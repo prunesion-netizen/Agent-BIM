@@ -5,9 +5,20 @@ project.py — Scheme Pydantic pentru Project, GeneratedDocument, ProjectContext
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+# ── ProjectStatus ─────────────────────────────────────────────────────────────
+
+class ProjectStatus(str, Enum):
+    NEW = "new"
+    CONTEXT_DEFINED = "context_defined"
+    BEP_GENERATED = "bep_generated"
+    BEP_VERIFIED_PARTIAL = "bep_verified_partial"
+    BEP_VERIFIED_OK = "bep_verified_ok"
 
 
 # ── Project ───────────────────────────────────────────────────────────────────
@@ -27,6 +38,7 @@ class ProjectRead(BaseModel):
     code: str
     client_name: str | None = None
     project_type: str | None = None
+    status: str = "new"
     created_at: str
     updated_at: str
 

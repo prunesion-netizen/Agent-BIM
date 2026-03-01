@@ -7,6 +7,7 @@ export interface ProjectRead {
   code: string;
   client_name: string | null;
   project_type: string | null;
+  status: string;
   created_at: string;
   updated_at: string;
 }
