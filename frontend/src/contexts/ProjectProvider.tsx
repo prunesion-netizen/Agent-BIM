@@ -41,6 +41,7 @@ interface ProjectCtx {
 
 const ProjectContext = createContext<ProjectCtx | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useProject(): ProjectCtx {
   const ctx = useContext(ProjectContext);
   if (!ctx) throw new Error("useProject must be used inside ProjectProvider");
