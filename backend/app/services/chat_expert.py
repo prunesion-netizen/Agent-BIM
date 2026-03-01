@@ -1,11 +1,12 @@
 """
 chat_expert.py — Serviciu Chat Expert BIM.
 Construiește context din BEP + standarde, apelează Claude.
+Include și modul Copilot cu context complet de proiect.
 """
 
 import logging
 
-from app.ai_client import call_llm_chat_expert
+from app.ai_client import call_llm_chat_expert, call_llm_chat_copilot
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +73,100 @@ async def chat_expert(project_id: str | None, message: str) -> str:
     )
 
     return call_llm_chat_expert(context, message)
+
+
+# ── Copilot (context complet de proiect) ────────────────────────────────────
+
+_STANDARDE = (
+    "SR EN ISO 19650-1:2019 — Concepte și principii BIM\n"
+    "SR EN ISO 19650-2:2021 — Faza de livrare a activelor\n"
+    "SR EN ISO 19650-3:2021 — Faza operațională\n"
+    "RTC 8, RTC 9 — Referențiale tehnice construcții\n"
+    "BS EN 17412-1:2021 — Level of Information Need"
+)
+
+
+def _truncate_bep(bep_markdown: str, max_chars: int = 12000) -> str:
+    """Truncează BEP la max_chars caractere (păstrează începutul cu structura)."""
+    if len(bep_markdown) <= max_chars:
+        return bep_markdown
+    return bep_markdown[:max_chars] + "\n\n[... trunchiat ...]"
+
+
+def build_copilot_context(chat_context: dict) -> str:
+    """Serializează contextul complet al proiectului în secțiuni text."""
+    sections: list[str] = []
+
+    # Proiect
+    proj = chat_context.get("project")
+    if proj:
+        sections.append(
+            "=== PROIECT ===\n"
+            f"Nume: {proj.get('name', 'N/A')}\n"
+            f"Cod: {proj.get('code', 'N/A')}\n"
+            f"Client: {proj.get('client_name') or 'N/A'}\n"
+            f"Tip: {proj.get('project_type') or 'N/A'}\n"
+            f"Status: {proj.get('status', 'N/A')}"
+        )
+
+    # Fișa proiect (ProjectContext)
+    ctx = chat_context.get("project_context")
+    if ctx:
+        lines = ["=== FISA PROIECT ==="]
+        for key in ("project_phase", "disciplines", "cde_platform", "lod_geometry",
+                     "lod_information", "bim_objectives", "kpi_metrics",
+                     "bim_software", "exchange_formats"):
+            val = ctx.get(key)
+            if val:
+                lines.append(f"{key}: {val}")
+        sections.append("\n".join(lines))
+
+    # BEP
+    bep = chat_context.get("bep")
+    if bep:
+        content = _truncate_bep(bep.get("content_markdown", ""))
+        sections.append(
+            f"=== BEP (v{bep.get('version', '?')}, {bep.get('created_at', '?')}) ===\n"
+            + content
+        )
+
+    # Verificări
+    verif = chat_context.get("verifications")
+    if verif and verif.get("total_count", 0) > 0:
+        latest = verif.get("latest")
+        lines = ["=== ULTIMA VERIFICARE ==="]
+        if latest:
+            lines.append(f"Status general: {latest.get('summary_status', 'N/A')}")
+            lines.append(f"Fail: {latest.get('fail_count', 0)}, Warning: {latest.get('warning_count', 0)}")
+            lines.append(f"Data: {latest.get('created_at', 'N/A')}")
+            report = latest.get("report_markdown", "")
+            if report:
+                lines.append(f"\nRaport:\n{report}")
+        history = verif.get("history", [])
+        if len(history) > 1:
+            lines.append(f"\nIstoric ({len(history)} verificări):")
+            for h in history[:5]:
+                lines.append(
+                    f"  - {h.get('created_at', '?')}: {h.get('summary_status', '?')} "
+                    f"(fail={h.get('fail_count', 0)}, warn={h.get('warning_count', 0)})"
+                )
+        sections.append("\n".join(lines))
+
+    # Standarde
+    sections.append(f"=== STANDARDE DE REFERINȚĂ ===\n{_STANDARDE}")
+
+    return "\n\n".join(sections)
+
+
+async def chat_expert_copilot(chat_context: dict, message: str) -> str:
+    """
+    Copilot BIM — răspunde folosind contextul complet al proiectului.
+    """
+    context = build_copilot_context(chat_context)
+
+    logger.info(
+        f"Chat Copilot: project={chat_context.get('project', {}).get('code', '?')}, "
+        f"context_len={len(context)}, question_len={len(message)}"
+    )
+
+    return call_llm_chat_copilot(context, message)

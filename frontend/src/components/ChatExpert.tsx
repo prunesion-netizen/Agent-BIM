@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import StatusBadge from "./StatusBadge";
 import type { BepContext } from "../App";
 
 interface Props {
   bepContext?: BepContext | null;
   projectId?: number | null;
+  projectStatus?: string | null;
 }
 
 interface Message {
@@ -32,7 +34,16 @@ const SUGGESTIONS_BEP = [
   "Care sunt jaloanele si livrabilele?",
 ];
 
-export default function ChatExpert({ bepContext, projectId }: Props) {
+const SUGGESTIONS_VERIFIED = [
+  "Ce neconformitati a gasit ultima verificare?",
+  "Cum rezolv problemele gasite la verificare?",
+  "Care sunt pasii urmatori dupa verificare?",
+  "Rezuma raportul de verificare",
+  "Ce discipline au probleme?",
+  "Ce recomandari are raportul de verificare?",
+];
+
+export default function ChatExpert({ bepContext, projectId, projectStatus }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,13 +80,16 @@ export default function ChatExpert({ bepContext, projectId }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/chat-expert", {
+      const url = projectId
+        ? `/api/projects/${projectId}/chat-expert`
+        : "/api/chat-expert";
+      const body = projectId
+        ? { message: text }
+        : { message: text, project_id: null };
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          project_id: projectId ?? null,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -118,7 +132,12 @@ export default function ChatExpert({ bepContext, projectId }: Props) {
   }
 
   const isEmpty = messages.length === 0;
-  const suggestions = bepContext ? SUGGESTIONS_BEP : SUGGESTIONS_GENERAL;
+  const isVerified = projectStatus?.startsWith("bep_verified");
+  const suggestions = isVerified
+    ? SUGGESTIONS_VERIFIED
+    : bepContext
+      ? SUGGESTIONS_BEP
+      : SUGGESTIONS_GENERAL;
 
   return (
     <div className="chat-container">
@@ -126,6 +145,7 @@ export default function ChatExpert({ bepContext, projectId }: Props) {
         <div className="chat-context-bar">
           <span className="chat-context-dot" />
           Context activ: <strong>{bepContext.projectName}</strong> ({bepContext.projectCode})
+          {projectStatus && <StatusBadge status={projectStatus} />}
         </div>
       )}
 
@@ -135,9 +155,11 @@ export default function ChatExpert({ bepContext, projectId }: Props) {
             <div className="chat-welcome-icon">BIM</div>
             <h2>Expert BIM Romania</h2>
             <p>
-              {bepContext
-                ? `Intreaba orice despre BEP-ul proiectului "${bepContext.projectName}". Expertul are acces la documentul complet.`
-                : "Intreaba orice despre BIM, ISO 19650, CDE, LOD, clash detection, standarde romanesti (RTC 8/9) sau bune practici de proiectare."}
+              {isVerified
+                ? `Copilotul are acces la BEP-ul, fisa si rapoartele de verificare ale proiectului "${bepContext?.projectName}". Intreaba despre neconformitati, recomandari sau pasi urmatori.`
+                : bepContext
+                  ? `Intreaba orice despre BEP-ul proiectului "${bepContext.projectName}". Expertul are acces la documentul complet.`
+                  : "Intreaba orice despre BIM, ISO 19650, CDE, LOD, clash detection, standarde romanesti (RTC 8/9) sau bune practici de proiectare."}
             </p>
             <div className="chat-suggestions">
               {suggestions.map((s) => (

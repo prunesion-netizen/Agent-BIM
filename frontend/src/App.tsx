@@ -71,6 +71,7 @@ function AppContent() {
           <ChatExpert
             bepContext={bepCtx}
             projectId={currentProject?.id ?? null}
+            projectStatus={currentProject?.status ?? null}
           />
         )}
         {tab === "verifier" && (

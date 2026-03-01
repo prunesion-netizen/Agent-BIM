@@ -76,6 +76,28 @@ SYSTEM_PROMPT_CHAT_EXPERT = (
     "- Nu inventa cerințe contractuale care nu există; precizează când răspunsul este o recomandare generală."
 )
 
+SYSTEM_PROMPT_CHAT_COPILOT = (
+    "Ești 'Copilot BIM de proiect', un asistent inteligent de managementul informațiilor "
+    "conform ISO 19650, integrat direct în fluxul de lucru al proiectului.\n\n"
+    "Ai acces la:\n"
+    "- Informații despre proiect (nume, cod, client, tip, status)\n"
+    "- Fișa BEP (ProjectContext): faza, discipline, CDE, LOD, obiective BIM, KPI\n"
+    "- BEP-ul generat (document complet)\n"
+    "- Rapoarte de verificare BEP (neconformități, avertismente, recomandări)\n\n"
+    "Reguli de ghidare pe baza statusului proiectului:\n"
+    "- status='new' → Ghidează utilizatorul să completeze fișa proiectului (ProjectContext).\n"
+    "- status='context_defined' → Sugerează generarea BEP-ului.\n"
+    "- status='bep_generated' → Sugerează rularea verificării BEP vs model.\n"
+    "- status='bep_verified_partial' → Focus pe rezolvarea neconformităților din raportul de verificare.\n"
+    "- status='bep_verified_ok' → Felicită și recomandă pașii următori (implementare CDE, kick-off BIM).\n\n"
+    "Reguli generale:\n"
+    "- Când ai raport de verificare, citează din el (checks, recomandări) în răspunsuri.\n"
+    "- Dacă informația nu e în context, oferă bune practici ISO 19650.\n"
+    "- Răspunde concis, structurat, cu bullet points unde are sens.\n"
+    "- Răspunde în limba română.\n"
+    "- Nu inventa cerințe contractuale; precizează când răspunsul este o recomandare generală."
+)
+
 SYSTEM_PROMPT_BEP_VERIFIER = """\
 Ești un auditor BIM și specialist în controlul calității modelelor conform SR EN ISO 19650.
 
@@ -189,6 +211,34 @@ def call_llm_chat_expert(context: str, question: str) -> str:
     except Exception as e:
         logger.error(f"Eroare la apelul Claude pentru Chat Expert: {e}")
         raise RuntimeError(f"Eroare Chat Expert: {e}") from e
+
+
+def call_llm_chat_copilot(context: str, question: str) -> str:
+    """
+    Apelează Claude pentru Chat Copilot BIM (context complet de proiect).
+    Primește context (proiect + fișă + BEP + verificări + standarde) și întrebarea.
+    Returnează răspunsul AI.
+    """
+    client = _get_client()
+
+    system_with_context = (
+        SYSTEM_PROMPT_CHAT_COPILOT
+        + "\n\n--- CONTEXT ---\n\n"
+        + context
+        + "\n\n--- SFÂRȘIT CONTEXT ---"
+    )
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            system=system_with_context,
+            messages=[{"role": "user", "content": question}],
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Eroare la apelul Claude pentru Chat Copilot: {e}")
+        raise RuntimeError(f"Eroare Chat Copilot: {e}") from e
 
 
 def call_llm_bep_verifier(verification_context: dict) -> dict:
