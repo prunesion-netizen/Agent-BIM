@@ -1455,6 +1455,43 @@ body {
   margin-bottom: 0;
 }
 
+/* ── IFC Import ── */
+.verifier-import-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--gray-300);
+}
+
+.verifier-import-btn {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.verifier-import-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+
+.verifier-import-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.verifier-import-hint {
+  font-size: 13px;
+  color: var(--gray-400);
+  font-style: italic;
+}
+
 /* ── Results ── */
 .verifier-results {
   display: flex;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { BepContext } from "../App";
@@ -83,6 +83,9 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = useState(false);
+
   const [history, setHistory] = useState<VerificationHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -125,6 +128,53 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
 
   function removeCategory(idx: number) {
     setCategories(categories.filter((_, i) => i !== idx));
+  }
+
+  async function handleImportIfc() {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+    if (!projectId) {
+      setError("Selecteaza un proiect mai intai.");
+      return;
+    }
+
+    setImportLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`/api/projects/${projectId}/import-ifc`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `Eroare server: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setSource(data.source);
+      setDisciplines(data.disciplines_present);
+      setFormats(data.exchange_formats_available);
+      setHasGeoref(data.has_georeference);
+      setCoordSystem(data.coordinate_system || "");
+      setLodAvailable(data.lod_info_available);
+      setNotes(data.notes || "");
+      setCategories(
+        data.categories.map((c: { name: string; element_count: number }) => ({
+          name: c.name,
+          element_count: String(c.element_count),
+        }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Eroare la importul fisierului IFC");
+    } finally {
+      setImportLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleVerify() {
@@ -231,6 +281,28 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
       <div className="verifier-form">
         <fieldset className="pcf-section">
           <legend>Rezumat Model BIM</legend>
+
+          {/* IFC Import */}
+          <div className="verifier-import-row">
+            <input
+              type="file"
+              accept=".ifc"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              onChange={handleImportIfc}
+            />
+            <button
+              type="button"
+              className="btn-outline verifier-import-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importLoading || !projectId}
+            >
+              {importLoading ? "Se importa..." : "Import fisier IFC"}
+            </button>
+            <span className="verifier-import-hint">
+              Importa un fisier .ifc pentru a pre-completa automat formularul
+            </span>
+          </div>
 
           {/* Source */}
           <div className="pcf-grid">
