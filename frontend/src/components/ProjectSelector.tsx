@@ -19,6 +19,7 @@ export default function ProjectSelector() {
   const [newCode, setNewCode] = useState("");
   const [newClient, setNewClient] = useState("");
   const [newType, setNewType] = useState("building");
+  const [newDescription, setNewDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,12 +37,14 @@ export default function ProjectSelector() {
         code: newCode.trim(),
         client_name: newClient.trim() || undefined,
         project_type: newType,
+        description: newDescription.trim() || undefined,
       });
       setShowModal(false);
       setNewName("");
       setNewCode("");
       setNewClient("");
       setNewType("building");
+      setNewDescription("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
     } finally {
@@ -130,6 +133,16 @@ export default function ProjectSelector() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="pcf-field">
+                <span>Descriere (optional)</span>
+                <textarea
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Descriere scurta a proiectului..."
+                  rows={2}
+                />
               </div>
 
               {error && <div className="demo-alert error">{error}</div>}

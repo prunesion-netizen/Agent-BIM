@@ -7,6 +7,7 @@ export interface ProjectRead {
   code: string;
   client_name: string | null;
   project_type: string | null;
+  description: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ export interface ProjectCreate {
   code: string;
   client_name?: string;
   project_type?: string;
+  description?: string;
 }
 
 interface ProjectCtx {
