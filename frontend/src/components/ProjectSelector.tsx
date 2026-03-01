@@ -23,6 +23,12 @@ export default function ProjectSelector() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Inline edit name
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
   // Inline edit description
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDesc, setEditDesc] = useState("");
@@ -30,11 +36,40 @@ export default function ProjectSelector() {
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    if (editingName && nameRef.current) {
+      nameRef.current.focus();
+      nameRef.current.select();
+    }
+  }, [editingName]);
+
+  useEffect(() => {
     if (editingDesc && editRef.current) {
       editRef.current.focus();
       editRef.current.select();
     }
   }, [editingDesc]);
+
+  function startEditName() {
+    setEditName(currentProject?.name ?? "");
+    setEditingName(true);
+  }
+
+  async function saveName() {
+    if (!currentProject || !editName.trim()) return;
+    setSavingName(true);
+    try {
+      await updateProject(currentProject.id, { name: editName.trim() });
+      setEditingName(false);
+    } catch {
+      // keep editing on error
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+  }
 
   function startEditDesc() {
     setEditDesc(currentProject?.description ?? "");
@@ -91,6 +126,40 @@ export default function ProjectSelector() {
 
   return (
     <>
+      {currentProject && (
+        <div className="project-name-bar">
+          {editingName ? (
+            <div className="name-edit-row">
+              <input
+                ref={nameRef}
+                className="name-edit-input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); saveName(); }
+                  if (e.key === "Escape") cancelEditName();
+                }}
+                disabled={savingName}
+              />
+              <button className="btn-sm btn-primary" onClick={saveName} disabled={savingName || !editName.trim()}>
+                {savingName ? "..." : "Salveaza"}
+              </button>
+              <button className="btn-sm btn-outline" onClick={cancelEditName} disabled={savingName}>
+                Anuleaza
+              </button>
+            </div>
+          ) : (
+            <div className="name-display-row">
+              <span className="name-text">{currentProject.name}</span>
+              <span className="name-code">({currentProject.code})</span>
+              <button className="desc-edit-btn" onClick={startEditName} title="Editeaza numele">
+                &#9998;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="project-selector">
         {loading ? (
           <span className="project-selector-loading">Se incarca...</span>
