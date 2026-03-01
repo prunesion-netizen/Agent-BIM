@@ -6,6 +6,7 @@ Funcții pentru generare BEP, Chat Expert BIM și Verificare BEP vs Model.
 import os
 import json
 import logging
+import re
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -215,29 +216,14 @@ def call_llm_bep_verifier(verification_context: dict) -> dict:
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=4096,
+            max_tokens=8192,
             system=SYSTEM_PROMPT_BEP_VERIFIER,
             messages=[{"role": "user", "content": user_message}],
         )
         raw = response.content[0].text.strip()
+        stop_reason = response.stop_reason
 
-        # Extrage JSON din răspuns (cu sau fără code fence)
-        if raw.startswith("```"):
-            # Elimină ```json ... ```
-            lines = raw.split("\n")
-            json_lines = []
-            inside = False
-            for line in lines:
-                if line.strip().startswith("```") and not inside:
-                    inside = True
-                    continue
-                if line.strip() == "```" and inside:
-                    break
-                if inside:
-                    json_lines.append(line)
-            raw = "\n".join(json_lines)
-
-        result = json.loads(raw)
+        result = _extract_verifier_json(raw, stop_reason)
 
         # Validare minimală a structurii
         if "report_markdown" not in result:
@@ -245,39 +231,152 @@ def call_llm_bep_verifier(verification_context: dict) -> dict:
         if "checks" not in result:
             result["checks"] = []
         if "summary" not in result:
-            total = len(result["checks"])
-            pass_count = sum(1 for c in result["checks"] if c.get("status") == "pass")
-            warning_count = sum(1 for c in result["checks"] if c.get("status") == "warning")
-            fail_count = sum(1 for c in result["checks"] if c.get("status") == "fail")
-            if fail_count > 0:
-                overall = "fail"
-            elif warning_count > 0:
-                overall = "warning"
-            else:
-                overall = "pass"
-            result["summary"] = {
-                "total_checks": total,
-                "pass_count": pass_count,
-                "warning_count": warning_count,
-                "fail_count": fail_count,
-                "overall_status": overall,
-            }
+            result["summary"] = _build_summary(result["checks"])
 
         return result
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Răspunsul Claude nu este JSON valid: {e}\nRaw: {raw[:500]}")
-        return {
-            "report_markdown": f"## Eroare de parsare\n\nRăspunsul LLM nu a putut fi parsat ca JSON.\n\n```\n{raw[:1000]}\n```",
-            "checks": [],
-            "summary": {
-                "total_checks": 0,
-                "pass_count": 0,
-                "warning_count": 0,
-                "fail_count": 0,
-                "overall_status": "warning",
-            },
-        }
     except Exception as e:
         logger.error(f"Eroare la apelul Claude pentru BEP Verifier: {e}")
         raise RuntimeError(f"Eroare verificare BEP: {e}") from e
+
+
+def _extract_verifier_json(raw: str, stop_reason: str | None = None) -> dict:
+    """Extrage JSON din răspunsul LLM, gestionând code fences și JSON trunchiat."""
+
+    # 1) Elimină code fence dacă există (oriunde în text)
+    fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", raw, re.DOTALL)
+    if fence_match:
+        raw = fence_match.group(1).strip()
+
+    # 2) Extrage primul obiect JSON {...} din text
+    start = raw.find("{")
+    if start == -1:
+        raise json.JSONDecodeError("Nu s-a găsit JSON în răspuns", raw, 0)
+    raw = raw[start:]
+
+    # 3) Încearcă parsare directă
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # 4) JSON trunchiat (max_tokens atins) — repară
+    if stop_reason == "max_tokens" or not raw.rstrip().endswith("}"):
+        logger.warning("JSON trunchiat detectat — se încearcă repararea")
+        return _repair_truncated_json(raw)
+
+    # 5) Ultima încercare — curăță trailing text după ultimul }
+    last_brace = raw.rfind("}")
+    if last_brace != -1:
+        try:
+            return json.loads(raw[: last_brace + 1])
+        except json.JSONDecodeError:
+            pass
+
+    raise json.JSONDecodeError("Nu s-a putut parsa JSON din răspuns", raw[:200], 0)
+
+
+def _repair_truncated_json(raw: str) -> dict:
+    """Repară JSON trunchiat extragând checks și report_markdown parțial."""
+    result: dict = {}
+
+    # Extrage checks[] (array complet sau parțial)
+    checks_match = re.search(
+        r'"checks"\s*:\s*\[',
+        raw,
+    )
+    if checks_match:
+        arr_start = checks_match.end() - 1  # include '['
+        # Găsește sfârșitul array-ului sau repară-l
+        depth = 0
+        last_valid = arr_start
+        for i in range(arr_start, len(raw)):
+            if raw[i] == "[":
+                depth += 1
+            elif raw[i] == "]":
+                depth -= 1
+                if depth == 0:
+                    last_valid = i + 1
+                    break
+            elif raw[i] == "}" and depth == 1:
+                last_valid = i + 1  # ultimul obiect complet din array
+
+        arr_str = raw[arr_start:last_valid]
+        if not arr_str.rstrip().endswith("]"):
+            # Taie ultimul obiect incomplet și închide array-ul
+            last_complete = arr_str.rfind("}")
+            if last_complete != -1:
+                arr_str = arr_str[: last_complete + 1] + "]"
+            else:
+                arr_str = "[]"
+
+        try:
+            result["checks"] = json.loads(arr_str)
+        except json.JSONDecodeError:
+            result["checks"] = []
+
+    # Extrage report_markdown (string trunchiat)
+    report_match = re.search(r'"report_markdown"\s*:\s*"', raw)
+    if report_match:
+        str_start = report_match.end()
+        # Parcurge string-ul JSON respectând escape-uri
+        i = str_start
+        chars = []
+        while i < len(raw):
+            if raw[i] == "\\" and i + 1 < len(raw):
+                chars.append(raw[i : i + 2])
+                i += 2
+            elif raw[i] == '"':
+                break
+            else:
+                chars.append(raw[i])
+                i += 1
+        md_raw = "".join(chars)
+        # Decodează escape-urile JSON
+        try:
+            result["report_markdown"] = json.loads(f'"{md_raw}"')
+        except json.JSONDecodeError:
+            result["report_markdown"] = md_raw.replace("\\n", "\n").replace('\\"', '"')
+
+    # Extrage summary dacă există complet
+    summary_match = re.search(r'"summary"\s*:\s*\{', raw)
+    if summary_match:
+        brace_start = summary_match.end() - 1
+        depth = 0
+        for i in range(brace_start, len(raw)):
+            if raw[i] == "{":
+                depth += 1
+            elif raw[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        result["summary"] = json.loads(raw[brace_start : i + 1])
+                    except json.JSONDecodeError:
+                        pass
+                    break
+
+    if not result:
+        raise json.JSONDecodeError("Nu s-a putut recupera nimic din JSON trunchiat", raw[:200], 0)
+
+    return result
+
+
+def _build_summary(checks: list[dict]) -> dict:
+    """Construiește summary din lista de checks."""
+    total = len(checks)
+    pass_count = sum(1 for c in checks if c.get("status") == "pass")
+    warning_count = sum(1 for c in checks if c.get("status") == "warning")
+    fail_count = sum(1 for c in checks if c.get("status") == "fail")
+    if fail_count > 0:
+        overall = "fail"
+    elif warning_count > 0:
+        overall = "warning"
+    else:
+        overall = "pass"
+    return {
+        "total_checks": total,
+        "pass_count": pass_count,
+        "warning_count": warning_count,
+        "fail_count": fail_count,
+        "overall_status": overall,
+    }
