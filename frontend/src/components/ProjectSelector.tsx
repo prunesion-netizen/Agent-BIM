@@ -17,7 +17,8 @@ function getTypeLabel(value: string | null): string {
 }
 
 export default function ProjectSelector() {
-  const { projects, currentProject, selectProject, createProject, updateProject, loading } = useProject();
+  const { projects, currentProject, selectProject, createProject, updateProject, deleteProject, loading } = useProject();
+  const [deleting, setDeleting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
@@ -222,6 +223,25 @@ export default function ProjectSelector() {
               <span className="name-code">({currentProject.code})</span>
               <button className="desc-edit-btn" onClick={startEditName} title="Editeaza numele">
                 &#9998;
+              </button>
+              <button
+                className="desc-edit-btn btn-delete-project"
+                onClick={async () => {
+                  if (!currentProject) return;
+                  if (!window.confirm(`Sigur doriti sa stergeti proiectul "${currentProject.name}"?`)) return;
+                  setDeleting(true);
+                  try {
+                    await deleteProject(currentProject.id);
+                  } catch {
+                    // silently fail
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleting}
+                title="Sterge proiectul"
+              >
+                {deleting ? "..." : "\u2716"}
               </button>
             </div>
           )}

@@ -6,7 +6,7 @@ GET  /api/projects         — listează toate proiectele
 GET  /api/projects/{id}    — detalii proiect + context + BEP
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -21,6 +21,7 @@ from app.schemas.converters import (
 )
 from app.repositories.projects_repository import (
     create_project, get_project, list_projects, update_project,
+    delete_project,
     get_latest_project_context, get_latest_generated_document,
 )
 
@@ -43,6 +44,14 @@ def api_update_project(
     if not project:
         raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
     return project_model_to_read(project)
+
+
+@router.delete("/projects/{project_id}", status_code=204)
+def api_delete_project(project_id: int, db: Session = Depends(get_db)):
+    """Sterge un proiect si toate datele asociate (CASCADE)."""
+    if not delete_project(db, project_id):
+        raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
+    return Response(status_code=204)
 
 
 @router.get("/projects", response_model=list[ProjectRead])

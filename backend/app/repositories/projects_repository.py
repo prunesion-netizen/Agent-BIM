@@ -64,6 +64,16 @@ def update_project(
     return project
 
 
+def delete_project(db: Session, project_id: int) -> bool:
+    """Sterge un proiect (CASCADE sterge copiii automat)."""
+    project = db.get(ProjectModel, project_id)
+    if not project:
+        return False
+    db.delete(project)
+    db.flush()
+    return True
+
+
 def update_project_status(
     db: Session, project_id: int, new_status: str
 ) -> ProjectModel | None:

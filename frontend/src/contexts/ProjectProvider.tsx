@@ -36,6 +36,7 @@ interface ProjectCtx {
   selectProject: (id: number) => void;
   createProject: (data: ProjectCreate) => Promise<ProjectRead>;
   updateProject: (id: number, data: ProjectUpdate) => Promise<ProjectRead>;
+  deleteProject: (id: number) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectCtx | null>(null);
@@ -114,6 +115,25 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const deleteProject = useCallback(
+    async (id: number): Promise<void> => {
+      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || "Eroare la stergerea proiectului");
+      }
+      setProjects((prev) => {
+        const remaining = prev.filter((p) => p.id !== id);
+        // If deleted project was selected, select first available
+        setCurrentId((cur) =>
+          cur === id ? (remaining.length > 0 ? remaining[0].id : null) : cur,
+        );
+        return remaining;
+      });
+    },
+    [],
+  );
+
   // Load projects on mount
   useEffect(() => {
     loadProjects();
@@ -122,7 +142,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   return (
     <ProjectContext.Provider
-      value={{ projects, currentProject, loading, loadProjects, selectProject, createProject, updateProject }}
+      value={{ projects, currentProject, loading, loadProjects, selectProject, createProject, updateProject, deleteProject }}
     >
       {children}
     </ProjectContext.Provider>

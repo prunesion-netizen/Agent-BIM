@@ -303,6 +303,13 @@ body {
 }
 .desc-edit-btn:hover { color: var(--blue-600); }
 
+.btn-delete-project {
+  color: var(--gray-400);
+  font-size: 12px;
+}
+.btn-delete-project:hover { color: var(--red-500) !important; }
+.btn-delete-project:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .desc-edit-row {
   display: flex;
   flex-direction: column;
