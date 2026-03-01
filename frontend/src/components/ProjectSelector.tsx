@@ -57,18 +57,20 @@ export default function ProjectSelector() {
         ) : projects.length === 0 ? (
           <span className="project-selector-empty">Niciun proiect</span>
         ) : (
-          <select
-            className="project-selector-dropdown"
-            value={currentProject?.id ?? ""}
-            onChange={(e) => selectProject(Number(e.target.value))}
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.code}) — {getStatusInfo(p.status).short}
-              </option>
-            ))}
-          </select>
-          {currentProject && <StatusBadge status={currentProject.status} />}
+          <>
+            <select
+              className="project-selector-dropdown"
+              value={currentProject?.id ?? ""}
+              onChange={(e) => selectProject(Number(e.target.value))}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.code}) — {getStatusInfo(p.status).short}
+                </option>
+              ))}
+            </select>
+            {currentProject && <StatusBadge status={currentProject.status} />}
+          </>
         )}
 
         <button className="project-selector-new" onClick={() => setShowModal(true)}>
