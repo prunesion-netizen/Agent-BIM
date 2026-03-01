@@ -239,6 +239,23 @@ body {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
+.project-info-bar {
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  border-left: 3px solid var(--gray-300);
+  border-radius: 0 6px 6px 0;
+  line-height: 1.4;
+}
+
+.info-label {
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-right: 4px;
+}
+
 .project-description-bar {
   margin-top: 4px;
   padding: 6px 12px;

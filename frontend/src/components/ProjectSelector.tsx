@@ -29,6 +29,12 @@ export default function ProjectSelector() {
   const [savingName, setSavingName] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
+  // Inline edit client
+  const [editingClient, setEditingClient] = useState(false);
+  const [editClient, setEditClient] = useState("");
+  const [savingClient, setSavingClient] = useState(false);
+  const clientRef = useRef<HTMLInputElement>(null);
+
   // Inline edit description
   const [editingDesc, setEditingDesc] = useState(false);
   const [editDesc, setEditDesc] = useState("");
@@ -41,6 +47,13 @@ export default function ProjectSelector() {
       nameRef.current.select();
     }
   }, [editingName]);
+
+  useEffect(() => {
+    if (editingClient && clientRef.current) {
+      clientRef.current.focus();
+      clientRef.current.select();
+    }
+  }, [editingClient]);
 
   useEffect(() => {
     if (editingDesc && editRef.current) {
@@ -69,6 +82,30 @@ export default function ProjectSelector() {
 
   function cancelEditName() {
     setEditingName(false);
+  }
+
+  function startEditClient() {
+    setEditClient(currentProject?.client_name ?? "");
+    setEditingClient(true);
+  }
+
+  async function saveClient() {
+    if (!currentProject) return;
+    setSavingClient(true);
+    try {
+      await updateProject(currentProject.id, {
+        client_name: editClient.trim() || undefined,
+      });
+      setEditingClient(false);
+    } catch {
+      // keep editing on error
+    } finally {
+      setSavingClient(false);
+    }
+  }
+
+  function cancelEditClient() {
+    setEditingClient(false);
   }
 
   function startEditDesc() {
@@ -186,6 +223,43 @@ export default function ProjectSelector() {
           + Proiect nou
         </button>
       </div>
+
+      {currentProject && (
+        <div className="project-info-bar">
+          {editingClient ? (
+            <div className="name-edit-row">
+              <input
+                ref={clientRef}
+                className="name-edit-input"
+                value={editClient}
+                onChange={(e) => setEditClient(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); saveClient(); }
+                  if (e.key === "Escape") cancelEditClient();
+                }}
+                placeholder="Numele clientului..."
+                disabled={savingClient}
+              />
+              <button className="btn-sm btn-primary" onClick={saveClient} disabled={savingClient}>
+                {savingClient ? "..." : "Salveaza"}
+              </button>
+              <button className="btn-sm btn-outline" onClick={cancelEditClient} disabled={savingClient}>
+                Anuleaza
+              </button>
+            </div>
+          ) : (
+            <div className="desc-display-row">
+              <span className="info-label">Client:</span>
+              <span className="desc-text">
+                {currentProject.client_name || "Nespecificat"}
+              </span>
+              <button className="desc-edit-btn" onClick={startEditClient} title="Editeaza clientul">
+                &#9998;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {currentProject && (
         <div className="project-description-bar">
