@@ -5,6 +5,7 @@ import type { BepContext } from "../App";
 
 interface Props {
   bepContext?: BepContext | null;
+  projectId?: number | null;
 }
 
 interface Check {
@@ -57,7 +58,7 @@ const FORMAT_OPTIONS: { value: string; label: string }[] = [
   { value: "other", label: "Altul" },
 ];
 
-export default function BepVerifier({ bepContext }: Props) {
+export default function BepVerifier({ bepContext, projectId }: Props) {
   const [source, setSource] = useState("revit");
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [formats, setFormats] = useState<string[]>([]);
@@ -90,6 +91,10 @@ export default function BepVerifier({ bepContext }: Props) {
   }
 
   async function handleVerify() {
+    if (!projectId) {
+      setError("Selecteaza un proiect mai intai.");
+      return;
+    }
     if (!bepContext) {
       setError("Nu exista BEP generat. Genereaza mai intai un BEP din tab-ul Fisa BEP.");
       return;
@@ -120,7 +125,6 @@ export default function BepVerifier({ bepContext }: Props) {
     };
 
     try {
-      const projectId = encodeURIComponent(bepContext.projectCode);
       const res = await fetch(`/api/projects/${projectId}/verify-bep-model`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -321,7 +325,7 @@ export default function BepVerifier({ bepContext }: Props) {
         <button
           className="btn-primary"
           onClick={handleVerify}
-          disabled={loading || !bepContext}
+          disabled={loading || !bepContext || !projectId}
           style={
             bepContext
               ? { background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }

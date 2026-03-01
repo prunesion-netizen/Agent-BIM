@@ -5,6 +5,7 @@ import type { BepContext } from "../App";
 
 interface Props {
   bepContext?: BepContext | null;
+  projectId?: number | null;
 }
 
 interface Message {
@@ -31,7 +32,7 @@ const SUGGESTIONS_BEP = [
   "Care sunt jaloanele si livrabilele?",
 ];
 
-export default function ChatExpert({ bepContext }: Props) {
+export default function ChatExpert({ bepContext, projectId }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -73,7 +74,7 @@ export default function ChatExpert({ bepContext }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          project_id: bepContext?.projectCode ?? null,
+          project_id: projectId ?? null,
         }),
       });
 

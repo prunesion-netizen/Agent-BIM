@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ProjectContextForm from "./ProjectContextForm";
 import { createDefaultProjectContext, type ProjectContext } from "../types/projectContext";
+import { useProject } from "../contexts/ProjectProvider";
 import type { BepContext } from "../App";
 
 interface Props {
@@ -11,11 +12,67 @@ interface Props {
 }
 
 export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: Props) {
+  const { currentProject } = useProject();
   const [ctx, setCtx] = useState<ProjectContext>(createDefaultProjectContext);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  // Pre-fill form from project data when project changes
+  useEffect(() => {
+    if (currentProject) {
+      setCtx((prev) => ({
+        ...prev,
+        project_name: currentProject.name,
+        project_code: currentProject.code,
+        client_name: currentProject.client_name || prev.client_name,
+        project_type: (currentProject.project_type as ProjectContext["project_type"]) || prev.project_type,
+      }));
+      // Try loading existing ProjectContext from backend
+      fetch(`/api/projects/${currentProject.id}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.project_context?.context_json) {
+            // Restore full context from backend
+            const saved = data.project_context.context_json;
+            setCtx((prev) => ({
+              ...prev,
+              ...fromBackendContext(saved),
+            }));
+          }
+          if (data?.latest_bep?.content_markdown) {
+            setResult(data.latest_bep.content_markdown);
+          } else {
+            setResult(null);
+          }
+        })
+        .catch(() => {/* ignore */});
+      setSavedMsg(null);
+    }
+  }, [currentProject?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Convert backend ProjectContext dict back to frontend shape */
+  function fromBackendContext(saved: Record<string, unknown>): Partial<ProjectContext> {
+    return {
+      project_name: (saved.project_name as string) || "",
+      project_code: (saved.project_code as string) || "",
+      project_type: (saved.project_type as ProjectContext["project_type"]) || "building",
+      project_description: (saved.project_description as string) || "",
+      location_city: (saved.location_city as string) || "",
+      location_county: (saved.location_county as string) || "",
+      location_country: (saved.location_country as string) || "Romania",
+      client_name: (saved.client_name as string) || "",
+      client_type: (saved.client_type as ProjectContext["client_type"]) || "public",
+      designer_name: (saved.designer_name as string) || "",
+      current_phase: (saved.current_phase as ProjectContext["current_phase"]) || "PT",
+      bep_version: (saved.bep_version as string) || "1.0",
+      disciplines: (saved.disciplines as ProjectContext["disciplines"]) || [],
+      cde_platform: (saved.cde_platform as ProjectContext["cde_platform"]) || "acc",
+      main_exchange_format: (saved.main_exchange_format as ProjectContext["main_exchange_format"]) || "ifc4_3",
+    };
+  }
 
   /** Transform front-end shape → backend Pydantic shape */
   function toBackendPayload(c: ProjectContext) {
@@ -81,6 +138,10 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
   }
 
   async function handleSubmit() {
+    if (!currentProject) {
+      setError("Selecteaza sau creeaza un proiect mai intai.");
+      return;
+    }
     if (!ctx.project_name || !ctx.project_code || !ctx.client_name) {
       setError("Completeaza campurile obligatorii: Nume proiect, Cod proiect, Client.");
       return;
@@ -89,11 +150,13 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
     setLoading(true);
     setError(null);
     setResult(null);
+    setSavedMsg(null);
 
     const payload = toBackendPayload(ctx);
 
     try {
-      const res = await fetch("/api/generate-bep", {
+      // Use project-scoped endpoint
+      const res = await fetch(`/api/projects/${currentProject.id}/generate-bep`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -105,11 +168,13 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       }
 
       const data = await res.json();
-      setResult(data.bep_markdown);
+      const bepMd = data.bep_document.content_markdown;
+      setResult(bepMd);
+      setSavedMsg(`BEP salvat pentru proiectul "${currentProject.name}" (doc #${data.bep_document.id})`);
       onBepGenerated?.({
-        projectCode: data.project_code,
-        projectName: ctx.project_name,
-        bepMarkdown: data.bep_markdown,
+        projectCode: currentProject.code,
+        projectName: currentProject.name,
+        bepMarkdown: bepMd,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
@@ -119,8 +184,9 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
   }
 
   async function handleDownloadDocx() {
+    if (!currentProject) return;
     try {
-      const res = await fetch(`/api/export-bep-docx/${encodeURIComponent(ctx.project_code)}`);
+      const res = await fetch(`/api/projects/${currentProject.id}/export-bep-docx`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         setError(err.detail || `Eroare la descarcarea DOCX: ${res.status}`);
@@ -130,7 +196,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `BEP_${ctx.project_code}.docx`;
+      a.download = `BEP_${currentProject.code}.docx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -145,15 +211,25 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
           <div className="demo-logo">BIM</div>
           <div>
             <h1>Fisa de proiect BEP 2.0</h1>
-            <p>Completeaza datele proiectului pentru a genera un BEP conform ISO 19650-2</p>
+            <p>
+              {currentProject
+                ? `Proiect: ${currentProject.name} (${currentProject.code})`
+                : "Selecteaza sau creeaza un proiect din bara de navigare"}
+            </p>
           </div>
         </div>
       </header>
 
+      {!currentProject && (
+        <div className="verifier-no-bep">
+          Nu exista proiect selectat. Creeaza un proiect nou din butonul <strong>+ Proiect nou</strong> din bara de sus.
+        </div>
+      )}
+
       <ProjectContextForm value={ctx} onChange={setCtx} />
 
       <div className="demo-actions">
-        <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading || !currentProject}>
           {loading ? "Se genereaza BEP..." : "Genereaza BEP"}
         </button>
         <button className="btn-outline" onClick={() => setShowJson(!showJson)}>
@@ -164,9 +240,8 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
         </button>
       </div>
 
-      {error && (
-        <div className="demo-alert error">{error}</div>
-      )}
+      {error && <div className="demo-alert error">{error}</div>}
+      {savedMsg && <div className="demo-alert success">{savedMsg}</div>}
 
       {result && (
         <div className="demo-result">
