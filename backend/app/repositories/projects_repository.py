@@ -16,7 +16,7 @@ from app.models.sql_models import (
     ProjectContextModel,
     ProjectModel,
 )
-from app.schemas.project import ProjectCreate
+from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.schemas.project_context import ProjectContext
 
 
@@ -48,6 +48,20 @@ def list_projects(db: Session) -> list[ProjectModel]:
         .order_by(desc(ProjectModel.created_at))
         .all()
     )
+
+
+def update_project(
+    db: Session, project_id: int, data: ProjectUpdate
+) -> ProjectModel | None:
+    """Actualizează câmpurile unui proiect (parțial — doar câmpurile non-None)."""
+    project = db.get(ProjectModel, project_id)
+    if not project:
+        return None
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(project, field, value)
+    project.updated_at = datetime.datetime.now(datetime.timezone.utc)
+    db.flush()
+    return project
 
 
 def update_project_status(

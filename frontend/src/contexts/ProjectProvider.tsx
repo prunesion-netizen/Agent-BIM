@@ -21,6 +21,13 @@ export interface ProjectCreate {
   description?: string;
 }
 
+export interface ProjectUpdate {
+  name?: string;
+  client_name?: string;
+  project_type?: string;
+  description?: string;
+}
+
 interface ProjectCtx {
   projects: ProjectRead[];
   currentProject: ProjectRead | null;
@@ -28,6 +35,7 @@ interface ProjectCtx {
   loadProjects: () => Promise<void>;
   selectProject: (id: number) => void;
   createProject: (data: ProjectCreate) => Promise<ProjectRead>;
+  updateProject: (id: number, data: ProjectUpdate) => Promise<ProjectRead>;
 }
 
 const ProjectContext = createContext<ProjectCtx | null>(null);
@@ -88,6 +96,24 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateProject = useCallback(
+    async (id: number, data: ProjectUpdate): Promise<ProjectRead> => {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || "Eroare la actualizarea proiectului");
+      }
+      const updated: ProjectRead = await res.json();
+      setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
+      return updated;
+    },
+    [],
+  );
+
   // Load projects on mount
   useEffect(() => {
     loadProjects();
@@ -96,7 +122,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   return (
     <ProjectContext.Provider
-      value={{ projects, currentProject, loading, loadProjects, selectProject, createProject }}
+      value={{ projects, currentProject, loading, loadProjects, selectProject, createProject, updateProject }}
     >
       {children}
     </ProjectContext.Provider>

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.schemas.project import (
-    ProjectCreate, ProjectRead,
+    ProjectCreate, ProjectUpdate, ProjectRead,
     ProjectDetailRead,
 )
 from app.schemas.converters import (
@@ -20,7 +20,7 @@ from app.schemas.converters import (
     document_model_to_read,
 )
 from app.repositories.projects_repository import (
-    create_project, get_project, list_projects,
+    create_project, get_project, list_projects, update_project,
     get_latest_project_context, get_latest_generated_document,
 )
 
@@ -31,6 +31,17 @@ router = APIRouter()
 def api_create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     """Creează un proiect BIM nou."""
     project = create_project(db, data)
+    return project_model_to_read(project)
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectRead)
+def api_update_project(
+    project_id: int, data: ProjectUpdate, db: Session = Depends(get_db)
+):
+    """Actualizează parțial un proiect (nume, client, tip, descriere)."""
+    project = update_project(db, project_id, data)
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
     return project_model_to_read(project)
 
 

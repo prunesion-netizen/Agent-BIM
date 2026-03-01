@@ -32,6 +32,14 @@ class ProjectCreate(BaseModel):
     description: str | None = Field(None, description="Descriere proiect")
 
 
+class ProjectUpdate(BaseModel):
+    """Date pentru actualizarea parțială a unui proiect."""
+    name: str | None = None
+    client_name: str | None = None
+    project_type: str | None = None
+    description: str | None = None
+
+
 class ProjectRead(BaseModel):
     """Proiect returnat de API."""
     id: int

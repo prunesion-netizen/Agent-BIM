@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
 import { useProject } from "../contexts/ProjectProvider";
 import StatusBadge from "./StatusBadge";
 import { getStatusInfo } from "../types/projectStatus";
@@ -13,7 +13,7 @@ const PROJECT_TYPES = [
 ];
 
 export default function ProjectSelector() {
-  const { projects, currentProject, selectProject, createProject, loading } = useProject();
+  const { projects, currentProject, selectProject, createProject, updateProject, loading } = useProject();
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
@@ -22,6 +22,43 @@ export default function ProjectSelector() {
   const [newDescription, setNewDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Inline edit description
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [editDesc, setEditDesc] = useState("");
+  const [savingDesc, setSavingDesc] = useState(false);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingDesc && editRef.current) {
+      editRef.current.focus();
+      editRef.current.select();
+    }
+  }, [editingDesc]);
+
+  function startEditDesc() {
+    setEditDesc(currentProject?.description ?? "");
+    setEditingDesc(true);
+  }
+
+  async function saveDesc() {
+    if (!currentProject) return;
+    setSavingDesc(true);
+    try {
+      await updateProject(currentProject.id, {
+        description: editDesc.trim() || undefined,
+      });
+      setEditingDesc(false);
+    } catch {
+      // keep editing on error
+    } finally {
+      setSavingDesc(false);
+    }
+  }
+
+  function cancelEditDesc() {
+    setEditingDesc(false);
+  }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -81,9 +118,41 @@ export default function ProjectSelector() {
         </button>
       </div>
 
-      {currentProject?.description && (
+      {currentProject && (
         <div className="project-description-bar">
-          {currentProject.description}
+          {editingDesc ? (
+            <div className="desc-edit-row">
+              <textarea
+                ref={editRef}
+                className="desc-edit-input"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveDesc(); }
+                  if (e.key === "Escape") cancelEditDesc();
+                }}
+                rows={2}
+                disabled={savingDesc}
+              />
+              <div className="desc-edit-actions">
+                <button className="btn-sm btn-primary" onClick={saveDesc} disabled={savingDesc}>
+                  {savingDesc ? "..." : "Salveaza"}
+                </button>
+                <button className="btn-sm btn-outline" onClick={cancelEditDesc} disabled={savingDesc}>
+                  Anuleaza
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="desc-display-row">
+              <span className="desc-text">
+                {currentProject.description || "Fara descriere"}
+              </span>
+              <button className="desc-edit-btn" onClick={startEditDesc} title="Editeaza descrierea">
+                &#9998;
+              </button>
+            </div>
+          )}
         </div>
       )}
 
