@@ -16,6 +16,7 @@ from app.schemas.project import (
     GeneratedDocumentRead,
     ProjectContextRead,
     ProjectRead,
+    VerificationHistoryItem,
 )
 
 
@@ -53,5 +54,20 @@ def document_model_to_read(d: GeneratedDocumentModel) -> GeneratedDocumentRead:
         title=d.title,
         content_markdown=d.content_markdown,
         version=d.version,
+        summary_status=d.summary_status,
+        fail_count=d.fail_count,
+        warning_count=d.warning_count,
         created_at=d.created_at.isoformat() if d.created_at else "",
+    )
+
+
+def document_model_to_history_item(d: GeneratedDocumentModel) -> VerificationHistoryItem:
+    """Convertește un GeneratedDocumentModel în VerificationHistoryItem (fără content)."""
+    return VerificationHistoryItem(
+        id=d.id,
+        title=d.title,
+        created_at=d.created_at.isoformat() if d.created_at else "",
+        summary_status=d.summary_status,
+        fail_count=d.fail_count,
+        warning_count=d.warning_count,
     )

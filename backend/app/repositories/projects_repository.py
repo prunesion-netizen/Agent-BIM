@@ -122,6 +122,9 @@ def save_generated_document(
     title: str,
     content_markdown: str,
     version: str | None = None,
+    summary_status: str | None = None,
+    fail_count: int | None = None,
+    warning_count: int | None = None,
 ) -> GeneratedDocumentModel:
     """Salvează un document generat (BEP, raport verificare, etc.)."""
     doc = GeneratedDocumentModel(
@@ -130,6 +133,9 @@ def save_generated_document(
         title=title,
         content_markdown=content_markdown,
         version=version,
+        summary_status=summary_status,
+        fail_count=fail_count,
+        warning_count=warning_count,
     )
     db.add(doc)
     db.flush()
@@ -158,6 +164,21 @@ def list_generated_documents(
     return (
         db.query(GeneratedDocumentModel)
         .filter(GeneratedDocumentModel.project_id == project_id)
+        .order_by(desc(GeneratedDocumentModel.created_at))
+        .all()
+    )
+
+
+def list_verification_reports(
+    db: Session, project_id: int
+) -> list[GeneratedDocumentModel]:
+    """Returnează toate rapoartele de verificare BEP ale unui proiect, desc."""
+    return (
+        db.query(GeneratedDocumentModel)
+        .filter(
+            GeneratedDocumentModel.project_id == project_id,
+            GeneratedDocumentModel.doc_type == "bep_verification_report",
+        )
         .order_by(desc(GeneratedDocumentModel.created_at))
         .all()
     )

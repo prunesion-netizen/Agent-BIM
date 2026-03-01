@@ -66,7 +66,20 @@ class GeneratedDocumentRead(BaseModel):
     title: str
     content_markdown: str
     version: str | None = None
+    summary_status: str | None = None
+    fail_count: int | None = None
+    warning_count: int | None = None
     created_at: str
+
+
+class VerificationHistoryItem(BaseModel):
+    """Element din istoricul verificărilor BEP (fără content_markdown)."""
+    id: int
+    title: str
+    created_at: str
+    summary_status: str | None = None
+    fail_count: int | None = None
+    warning_count: int | None = None
 
 
 # ── ProjectContextRead ───────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     JSON,
     String,
     Text,
@@ -80,6 +81,9 @@ class GeneratedDocumentModel(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     content_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    summary_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    fail_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
+    warning_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { BepContext } from "../App";
@@ -26,6 +26,15 @@ interface VerificationResult {
     fail_count: number;
     overall_status: "pass" | "warning" | "fail";
   };
+}
+
+interface VerificationHistoryItem {
+  id: number;
+  title: string;
+  created_at: string;
+  summary_status: string | null;
+  fail_count: number | null;
+  warning_count: number | null;
 }
 
 interface CategoryRow {
@@ -73,6 +82,32 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<VerificationHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (!projectId) {
+      setHistory([]);
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/verification-history`);
+      if (res.ok) {
+        const data: VerificationHistoryItem[] = await res.json();
+        setHistory(data);
+      }
+    } catch {
+      // silent — history is non-critical
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   function toggleItem(list: string[], item: string, setter: (v: string[]) => void) {
     setter(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
@@ -141,6 +176,7 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
       const data: VerificationResult = await res.json();
       setResult(data);
       loadProjects();
+      fetchHistory();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Eroare necunoscuta");
     } finally {
@@ -384,6 +420,65 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
                 <Markdown remarkPlugins={[remarkGfm]}>{result.report_markdown}</Markdown>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Verification history */}
+      {projectId && (
+        <div className="verifier-history">
+          <h3>Istoric verificari</h3>
+          {historyLoading ? (
+            <p style={{ color: "var(--gray-400)", fontSize: 13 }}>Se incarca...</p>
+          ) : history.length === 0 ? (
+            <p style={{ color: "var(--gray-400)", fontSize: 13 }}>
+              Nicio verificare anterioara pentru acest proiect.
+            </p>
+          ) : (
+            <table className="verifier-history-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Neconforme</th>
+                  <th>Atentionari</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      {new Date(item.created_at).toLocaleString("ro-RO", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td>
+                      <span
+                        className={`verifier-history-badge-${
+                          item.summary_status === "pass"
+                            ? "pass"
+                            : item.summary_status === "warning"
+                            ? "warning"
+                            : "fail"
+                        }`}
+                      >
+                        {item.summary_status === "pass"
+                          ? "Conform"
+                          : item.summary_status === "warning"
+                          ? "Partial"
+                          : "Neconform"}
+                      </span>
+                    </td>
+                    <td className="verifier-history-count">{item.fail_count ?? 0}</td>
+                    <td className="verifier-history-count">{item.warning_count ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}
