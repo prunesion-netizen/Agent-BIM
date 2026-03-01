@@ -1,8 +1,12 @@
 """
 db.py — SQLAlchemy engine, session factory, Base, și get_db() dependency.
+
+Suportă PostgreSQL (producție) și SQLite (development local).
+Setează DATABASE_URL în .env sau folosește SQLite implicit.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
@@ -10,12 +14,23 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 load_dotenv()
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://agent_bim:agent_bim@localhost:5432/agent_bim",
+# Default: SQLite local în backend/data/agent_bim.db
+_DEFAULT_SQLITE = "sqlite:///" + str(
+    Path(__file__).resolve().parent.parent / "data" / "agent_bim.db"
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+DATABASE_URL = os.getenv("DATABASE_URL", _DEFAULT_SQLITE)
+
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+
+_engine_kwargs: dict = {}
+if _is_sqlite:
+    # SQLite nu suportă pool_pre_ping; necesită check_same_thread=False
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    _engine_kwargs["pool_pre_ping"] = True
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(bind=engine)
 
 

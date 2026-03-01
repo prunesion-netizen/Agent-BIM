@@ -13,14 +13,20 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    JSON,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db import Base
+from app.db import Base, _is_sqlite
+
+# JSONB pe PostgreSQL, JSON pe SQLite
+if not _is_sqlite:
+    from sqlalchemy.dialects.postgresql import JSONB as _JsonType
+else:
+    _JsonType = JSON
 
 
 class ProjectModel(Base):
@@ -54,7 +60,7 @@ class ProjectContextModel(Base):
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
-    context_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    context_json: Mapped[dict] = mapped_column(_JsonType, nullable=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
