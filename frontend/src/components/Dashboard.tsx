@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import StatusBadge from "./StatusBadge";
 
 /* ── Types ── */
@@ -72,6 +73,22 @@ function getVerifBadgeClass(status: string | null | undefined): string {
   return "dashboard-verif-none";
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  new: "Nou",
+  context_defined: "Context definit",
+  bep_generated: "BEP generat",
+  bep_verified_partial: "Verificat partial",
+  bep_verified_ok: "Verificat OK",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  new: "#9ca3af",
+  context_defined: "#60a5fa",
+  bep_generated: "#f59e0b",
+  bep_verified_partial: "#f97316",
+  bep_verified_ok: "#16a34a",
+};
+
 /* ── Component ── */
 
 export default function Dashboard({ onSelectProject }: Props) {
@@ -133,6 +150,18 @@ export default function Dashboard({ onSelectProject }: Props) {
     new Set(items.map((p) => p.project_type).filter(Boolean) as string[])
   );
 
+  // Status distribution for donut chart
+  const statusCounts = items.reduce<Record<string, number>>((acc, p) => {
+    acc[p.status] = (acc[p.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const statusChartData = Object.entries(statusCounts).map(([status, count]) => ({
+    name: STATUS_LABELS[status] || status,
+    value: count,
+    fill: STATUS_COLORS[status] || "#9ca3af",
+  }));
+
   return (
     <div className="demo-container">
       <header className="demo-header">
@@ -170,6 +199,35 @@ export default function Dashboard({ onSelectProject }: Props) {
           <div className="dashboard-stat-label">Cu Probleme</div>
         </div>
       </div>
+
+      {/* Status distribution chart */}
+      {items.length > 0 && (
+        <div className="dashboard-charts-row">
+          <div className="dashboard-chart-card">
+            <h3 className="dashboard-chart-title">Distributie Status Proiecte</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={statusChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={3}
+                  dataKey="value"
+                  label={({ name, value }) => `${name}: ${value}`}
+                >
+                  {statusChartData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="dashboard-filters">
