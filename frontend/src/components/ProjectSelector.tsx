@@ -12,6 +12,10 @@ const PROJECT_TYPES = [
   { value: "other", label: "Altul" },
 ];
 
+function getTypeLabel(value: string | null): string {
+  return PROJECT_TYPES.find((t) => t.value === value)?.label ?? value ?? "Nespecificat";
+}
+
 export default function ProjectSelector() {
   const { projects, currentProject, selectProject, createProject, updateProject, loading } = useProject();
   const [showModal, setShowModal] = useState(false);
@@ -34,6 +38,11 @@ export default function ProjectSelector() {
   const [editClient, setEditClient] = useState("");
   const [savingClient, setSavingClient] = useState(false);
   const clientRef = useRef<HTMLInputElement>(null);
+
+  // Inline edit type
+  const [editingType, setEditingType] = useState(false);
+  const [editType, setEditType] = useState("building");
+  const [savingType, setSavingType] = useState(false);
 
   // Inline edit description
   const [editingDesc, setEditingDesc] = useState(false);
@@ -106,6 +115,28 @@ export default function ProjectSelector() {
 
   function cancelEditClient() {
     setEditingClient(false);
+  }
+
+  function startEditType() {
+    setEditType(currentProject?.project_type ?? "building");
+    setEditingType(true);
+  }
+
+  async function saveType(value: string) {
+    if (!currentProject) return;
+    setSavingType(true);
+    try {
+      await updateProject(currentProject.id, { project_type: value });
+      setEditingType(false);
+    } catch {
+      // keep editing on error
+    } finally {
+      setSavingType(false);
+    }
+  }
+
+  function cancelEditType() {
+    setEditingType(false);
   }
 
   function startEditDesc() {
@@ -254,6 +285,38 @@ export default function ProjectSelector() {
                 {currentProject.client_name || "Nespecificat"}
               </span>
               <button className="desc-edit-btn" onClick={startEditClient} title="Editeaza clientul">
+                &#9998;
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentProject && (
+        <div className="project-info-bar">
+          {editingType ? (
+            <div className="name-edit-row">
+              <select
+                className="type-edit-select"
+                value={editType}
+                onChange={(e) => { setEditType(e.target.value); saveType(e.target.value); }}
+                disabled={savingType}
+              >
+                {PROJECT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+              <button className="btn-sm btn-outline" onClick={cancelEditType} disabled={savingType}>
+                Anuleaza
+              </button>
+            </div>
+          ) : (
+            <div className="desc-display-row">
+              <span className="info-label">Tip:</span>
+              <span className="desc-text">
+                {getTypeLabel(currentProject.project_type)}
+              </span>
+              <button className="desc-edit-btn" onClick={startEditType} title="Editeaza tipul">
                 &#9998;
               </button>
             </div>
