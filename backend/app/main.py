@@ -42,6 +42,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3002",   # Vite dev (configured port)
+        "http://127.0.0.1:3002",
         "http://localhost:5173",   # Vite dev default
         "http://localhost:5000",   # Flask legacy UI
     ],
@@ -65,6 +67,7 @@ from app.api import verifier  # noqa: E402
 from app.api import bep_verification  # noqa: E402
 from app.api import projects_dashboard  # noqa: E402
 from app.api import model_import  # noqa: E402
+from app.api import agent  # noqa: E402
 
 app.include_router(projects_dashboard.router, prefix="/api", tags=["Projects Dashboard"])
 app.include_router(projects.router, prefix="/api", tags=["Projects"])
@@ -73,3 +76,4 @@ app.include_router(chat.router, prefix="/api", tags=["Chat Expert"])
 app.include_router(verifier.router, prefix="/api", tags=["BEP Verifier"])
 app.include_router(bep_verification.router, prefix="/api", tags=["BEP Verification"])
 app.include_router(model_import.router, prefix="/api", tags=["Model Import"])
+app.include_router(agent.router, prefix="/api", tags=["Agent BIM"])

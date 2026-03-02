@@ -22,7 +22,7 @@ export type ProjectOverview = {
   updated_at: string;
 };
 
-type TargetTab = "bep" | "chat" | "verifier";
+type TargetTab = "bep" | "agent" | "chat" | "verifier";
 
 interface Props {
   onSelectProject: (projectId: number, tab: TargetTab) => void;

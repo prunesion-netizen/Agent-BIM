@@ -4,9 +4,10 @@ import ProjectSelector from "./components/ProjectSelector";
 import Dashboard from "./components/Dashboard";
 import ProjectContextFormDemo from "./components/ProjectContextFormDemo";
 import ChatExpert from "./components/ChatExpert";
+import AgentChat from "./components/AgentChat";
 import BepVerifier from "./components/BepVerifier";
 
-type Tab = "dashboard" | "bep" | "chat" | "verifier";
+type Tab = "dashboard" | "bep" | "agent" | "chat" | "verifier";
 
 export interface BepContext {
   projectCode: string;
@@ -28,7 +29,7 @@ function AppContent() {
   }, []);
 
   const handleDashboardSelect = useCallback(
-    (projectId: number, targetTab: "bep" | "chat" | "verifier") => {
+    (projectId: number, targetTab: "bep" | "agent" | "chat" | "verifier") => {
       selectProject(projectId);
       setTab(targetTab);
     },
@@ -52,6 +53,14 @@ function AppContent() {
           >
             <span className="app-tab-icon">&#9776;</span>
             Fisa BEP
+          </button>
+          <button
+            className={`app-tab ${tab === "agent" ? "active" : ""}`}
+            onClick={() => setTab("agent")}
+          >
+            <span className="app-tab-icon">&#9881;</span>
+            Agent BIM
+            {currentProject && <span className="app-tab-badge" />}
           </button>
           <button
             className={`app-tab ${tab === "chat" ? "active" : ""}`}
@@ -84,6 +93,14 @@ function AppContent() {
           <ProjectContextFormDemo
             onBepGenerated={handleBepGenerated}
             onGoToChat={goToChat}
+          />
+        )}
+        {tab === "agent" && (
+          <AgentChat
+            projectId={currentProject?.id ?? null}
+            projectStatus={currentProject?.status ?? null}
+            projectName={currentProject?.name}
+            projectCode={currentProject?.code}
           />
         )}
         {tab === "chat" && (
