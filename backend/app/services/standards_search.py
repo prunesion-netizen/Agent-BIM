@@ -19,12 +19,15 @@ _CHROMA_DB_PATH = str(
 
 _client = None
 _collection = None
+_embed_model = None
 _initialized = False
+
+_EMBED_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def _init_chroma():
     """Inițializează clientul ChromaDB (lazy, o singură dată)."""
-    global _client, _collection, _initialized
+    global _client, _collection, _embed_model, _initialized
 
     if _initialized:
         return
@@ -33,20 +36,19 @@ def _init_chroma():
 
     try:
         import chromadb
+        from sentence_transformers import SentenceTransformer
+
+        _embed_model = SentenceTransformer(_EMBED_MODEL_NAME)
 
         _client = chromadb.PersistentClient(path=_CHROMA_DB_PATH)
-        collections = _client.list_collections()
-        if collections:
-            _collection = collections[0]
-            logger.info(
-                f"ChromaDB inițializat: colecție '{_collection.name}' "
-                f"cu {_collection.count()} documente"
-            )
-        else:
-            logger.warning("ChromaDB: nu există colecții disponibile")
+        _collection = _client.get_collection(name="bim_knowledge")
+        logger.info(
+            f"ChromaDB inițializat: colecție 'bim_knowledge' "
+            f"cu {_collection.count()} documente"
+        )
     except ImportError:
         logger.warning(
-            "chromadb nu este instalat. "
+            "chromadb sau sentence-transformers nu este instalat. "
             "Tool-ul search_bim_standards va folosi cunoștințe hardcodate."
         )
     except Exception as e:
@@ -66,10 +68,11 @@ def search_standards(query: str, n_results: int = 5) -> list[dict]:
     """
     _init_chroma()
 
-    if _collection is not None:
+    if _collection is not None and _embed_model is not None:
         try:
+            query_embedding = _embed_model.encode([query]).tolist()
             results = _collection.query(
-                query_texts=[query],
+                query_embeddings=query_embedding,
                 n_results=min(n_results, 10),
             )
 
@@ -84,6 +87,7 @@ def search_standards(query: str, n_results: int = 5) -> list[dict]:
                 output.append({
                     "text": doc[:1000],  # limităm lungimea
                     "source": meta.get("source", "Standard BIM"),
+                    "category": meta.get("category", ""),
                     "relevance_score": round(1 - distance, 3) if distance else 0,
                 })
 
@@ -92,10 +96,10 @@ def search_standards(query: str, n_results: int = 5) -> list[dict]:
             logger.warning(f"Eroare la căutare ChromaDB: {e}")
 
     # Fallback: cunoștințe hardcodate
-    return _fallback_search(query)
+    return _fallback_search(query, n_results)
 
 
-def _fallback_search(query: str) -> list[dict]:
+def _fallback_search(query: str, n_results: int = 5) -> list[dict]:
     """Returnează cunoștințe hardcodate relevante dacă ChromaDB nu e disponibil."""
     q = query.lower()
     results = []
