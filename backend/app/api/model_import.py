@@ -12,10 +12,15 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.repositories.projects_repository import get_project, save_uploaded_file
+from app.repositories.projects_repository import (
+    get_latest_uploaded_file,
+    get_project,
+    save_uploaded_file,
+)
 from app.schemas.model_summary import ModelSummary
 from app.services.ifc_parser import generate_model_summary_from_ifc
 
@@ -74,3 +79,57 @@ async def api_import_ifc(
     db.commit()
 
     return summary
+
+
+@router.get(
+    "/projects/{project_id}/ifc-file",
+    summary="Descarcă fișierul IFC binar",
+)
+def api_get_ifc_file(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Returnează fișierul IFC binar al proiectului (cel mai recent upload)."""
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Proiectul nu a fost găsit.")
+
+    uploaded = get_latest_uploaded_file(db, project_id, "ifc")
+    if not uploaded:
+        raise HTTPException(status_code=404, detail="Nu există fișier IFC pentru acest proiect.")
+
+    file_path = Path(uploaded.file_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Fișierul IFC nu a fost găsit pe disc.")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=uploaded.filename,
+        media_type="application/octet-stream",
+    )
+
+
+@router.get(
+    "/projects/{project_id}/ifc-info",
+    summary="Metadata fișier IFC (fără descărcare)",
+)
+def api_get_ifc_info(
+    project_id: int,
+    db: Session = Depends(get_db),
+):
+    """Returnează metadata JSON despre cel mai recent fișier IFC uploadat."""
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Proiectul nu a fost găsit.")
+
+    uploaded = get_latest_uploaded_file(db, project_id, "ifc")
+    if not uploaded:
+        raise HTTPException(status_code=404, detail="Nu există fișier IFC pentru acest proiect.")
+
+    return {
+        "filename": uploaded.filename,
+        "file_size_bytes": uploaded.file_size_bytes,
+        "file_size_mb": round((uploaded.file_size_bytes or 0) / (1024 * 1024), 2),
+        "uploaded_at": uploaded.created_at.isoformat() if uploaded.created_at else None,
+        "summary": uploaded.parsed_summary_json,
+    }

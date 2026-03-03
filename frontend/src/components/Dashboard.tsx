@@ -19,6 +19,9 @@ export type ProjectOverview = {
   last_verification_status?: "pass" | "partial" | "fail" | null;
   last_verification_fail_count?: number | null;
   last_verification_warning_count?: number | null;
+  health_score: number;
+  has_ifc: boolean;
+  health_alerts: string[];
   updated_at: string;
 };
 
@@ -71,6 +74,12 @@ function getVerifBadgeClass(status: string | null | undefined): string {
   if (status === "warning" || status === "partial") return "dashboard-verif-warning";
   if (status === "fail") return "dashboard-verif-fail";
   return "dashboard-verif-none";
+}
+
+function getHealthColor(score: number): string {
+  if (score >= 80) return "health-green";
+  if (score >= 50) return "health-yellow";
+  return "health-red";
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -144,6 +153,9 @@ export default function Dashboard({ onSelectProject }: Props) {
       p.last_verification_status === "fail" ||
       p.last_verification_status === "partial"
   ).length;
+  const avgHealth = total > 0
+    ? Math.round(items.reduce((s, p) => s + p.health_score, 0) / total)
+    : 0;
 
   // Unique project types for filter dropdown
   const projectTypes = Array.from(
@@ -177,7 +189,7 @@ export default function Dashboard({ onSelectProject }: Props) {
       </header>
 
       {/* Summary cards */}
-      <div className="dashboard-summary-row">
+      <div className="dashboard-summary-row dashboard-summary-5">
         <div className="dashboard-stat-card">
           <div className="dashboard-stat-value">{total}</div>
           <div className="dashboard-stat-label">Total Proiecte</div>
@@ -197,6 +209,12 @@ export default function Dashboard({ onSelectProject }: Props) {
             {withIssues}
           </div>
           <div className="dashboard-stat-label">Cu Probleme</div>
+        </div>
+        <div className="dashboard-stat-card">
+          <div className={`dashboard-stat-value dashboard-stat-health ${getHealthColor(avgHealth)}`}>
+            {avgHealth}%
+          </div>
+          <div className="dashboard-stat-label">Scor Mediu Sanatate</div>
         </div>
       </div>
 
@@ -307,9 +325,10 @@ export default function Dashboard({ onSelectProject }: Props) {
                 <th>Client</th>
                 <th>Tip</th>
                 <th>Status BIM</th>
+                <th>Sanatate</th>
                 <th>BEP</th>
                 <th>Ultima verificare</th>
-                <th>Acțiuni</th>
+                <th>Actiuni</th>
               </tr>
             </thead>
             <tbody>
@@ -329,6 +348,30 @@ export default function Dashboard({ onSelectProject }: Props) {
                   </td>
                   <td>
                     <StatusBadge status={p.status} />
+                  </td>
+                  <td>
+                    <div className="dashboard-health-cell">
+                      <div className="dashboard-health-bar-track">
+                        <div
+                          className={`dashboard-health-bar-fill ${getHealthColor(p.health_score)}`}
+                          style={{ width: `${p.health_score}%` }}
+                        />
+                      </div>
+                      <span className={`dashboard-health-value ${getHealthColor(p.health_score)}`}>
+                        {p.health_score}%
+                      </span>
+                      <div className="dashboard-presence-icons">
+                        <span className={p.has_bep ? "presence-ok" : "presence-no"} title="BEP generat">
+                          {p.has_bep ? "\u2713" : "\u2717"} BEP
+                        </span>
+                        <span className={p.has_ifc ? "presence-ok" : "presence-no"} title="Model IFC importat">
+                          {p.has_ifc ? "\u2713" : "\u2717"} IFC
+                        </span>
+                        <span className={p.has_verifications ? "presence-ok" : "presence-no"} title="Verificare BEP efectuata">
+                          {p.has_verifications ? "\u2713" : "\u2717"} Verif
+                        </span>
+                      </div>
+                    </div>
                   </td>
                   <td>
                     {p.has_bep ? (

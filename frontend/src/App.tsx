@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { ProjectProvider, useProject } from "./contexts/ProjectProvider";
 import ProjectSelector from "./components/ProjectSelector";
 import Dashboard from "./components/Dashboard";
@@ -7,7 +7,9 @@ import ChatExpert from "./components/ChatExpert";
 import AgentChat from "./components/AgentChat";
 import BepVerifier from "./components/BepVerifier";
 
-type Tab = "dashboard" | "bep" | "agent" | "chat" | "verifier";
+const IfcViewer = lazy(() => import("./components/IfcViewer"));
+
+type Tab = "dashboard" | "bep" | "agent" | "chat" | "verifier" | "viewer";
 
 export interface BepContext {
   projectCode: string;
@@ -29,7 +31,7 @@ function AppContent() {
   }, []);
 
   const handleDashboardSelect = useCallback(
-    (projectId: number, targetTab: "bep" | "agent" | "chat" | "verifier") => {
+    (projectId: number, targetTab: "bep" | "agent" | "chat" | "verifier" | "viewer") => {
       selectProject(projectId);
       setTab(targetTab);
     },
@@ -78,6 +80,14 @@ function AppContent() {
             Verificare BEP
             {bepCtx && <span className="app-tab-badge" />}
           </button>
+          <button
+            className={`app-tab ${tab === "viewer" ? "active" : ""}`}
+            onClick={() => setTab("viewer")}
+          >
+            <span className="app-tab-icon">&#9635;</span>
+            Viewer 3D
+            {currentProject && <span className="app-tab-badge" />}
+          </button>
         </div>
 
         <div className="app-tabs-right">
@@ -115,6 +125,11 @@ function AppContent() {
             bepContext={bepCtx}
             projectId={currentProject?.id ?? null}
           />
+        )}
+        {tab === "viewer" && (
+          <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Se incarca Viewer 3D...</div>}>
+            <IfcViewer projectId={currentProject?.id ?? null} />
+          </Suspense>
         )}
       </main>
     </div>

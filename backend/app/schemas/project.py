@@ -100,6 +100,9 @@ class ProjectOverview(BaseModel):
     last_verification_status: str | None = None
     last_verification_fail_count: int | None = None
     last_verification_warning_count: int | None = None
+    health_score: int = 0
+    has_ifc: bool = False
+    health_alerts: list[str] = []
     updated_at: str
 
 

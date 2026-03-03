@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.sql_models import GeneratedDocumentModel, ProjectModel
 from app.schemas.project import ProjectOverview
+from app.services.project_health import compute_project_health
 
 router = APIRouter()
 
@@ -54,6 +55,12 @@ def _build_overview(db: Session, project: ProjectModel) -> ProjectOverview:
     last_verif_fail = verif_doc.fail_count if verif_doc else None
     last_verif_warn = verif_doc.warning_count if verif_doc else None
 
+    # Health score
+    health = compute_project_health(db, project.id)
+    health_score = health.get("score", 0) if "error" not in health else 0
+    has_ifc = health.get("has_ifc", False)
+    health_alerts = health.get("alerts", [])
+
     return ProjectOverview(
         id=project.id,
         name=project.name,
@@ -69,6 +76,9 @@ def _build_overview(db: Session, project: ProjectModel) -> ProjectOverview:
         last_verification_status=last_verif_status,
         last_verification_fail_count=last_verif_fail,
         last_verification_warning_count=last_verif_warn,
+        health_score=health_score,
+        has_ifc=has_ifc,
+        health_alerts=health_alerts,
         updated_at=project.updated_at.isoformat() if project.updated_at else "",
     )
 
