@@ -1,8 +1,8 @@
 """
 model_import.py — Endpoint pentru importul fișierelor IFC.
 
-Primește un fișier IFC, îl parsează cu ifcopenshell și returnează
-un ModelSummary pre-populat pe care UI-ul îl poate afișa/edita.
+Primește un fișier IFC, îl parsează cu ifcopenshell, persistă fișierul
+pe disc și salvează metadata + summary parsat în DB.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.repositories.projects_repository import get_project
+from app.repositories.projects_repository import get_project, save_uploaded_file
 from app.schemas.model_summary import ModelSummary
 from app.services.ifc_parser import generate_model_summary_from_ifc
 
@@ -34,7 +34,7 @@ async def api_import_ifc(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> ModelSummary:
-    """Primește un fișier .ifc, parsează conținutul și returnează un ModelSummary."""
+    """Primește un fișier .ifc, parsează conținutul, persistă și returnează ModelSummary."""
 
     # 1. Verifică proiectul
     project = get_project(db, project_id)
@@ -49,20 +49,28 @@ async def api_import_ifc(
             detail="Fișierul trebuie să aibă extensia .ifc",
         )
 
-    # 3. Salvează temporar
+    # 3. Salvează persistent
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = int(time.time() * 1000)
-    tmp_path = UPLOAD_DIR / f"{project_id}_{timestamp}.ifc"
+    saved_path = UPLOAD_DIR / f"{project_id}_{timestamp}_{filename}"
 
-    try:
-        content = await file.read()
-        tmp_path.write_bytes(content)
+    content = await file.read()
+    saved_path.write_bytes(content)
+    file_size = len(content)
 
-        # 4. Parsează
-        summary = generate_model_summary_from_ifc(str(tmp_path))
-        return summary
+    # 4. Parsează
+    summary = generate_model_summary_from_ifc(str(saved_path))
 
-    finally:
-        # 5. Cleanup
-        if tmp_path.exists():
-            os.remove(tmp_path)
+    # 5. Persistă metadata + summary în DB
+    save_uploaded_file(
+        db,
+        project_id=project_id,
+        filename=filename,
+        file_path=str(saved_path),
+        file_type="ifc",
+        file_size_bytes=file_size,
+        parsed_summary_json=summary.model_dump(mode="json"),
+    )
+    db.commit()
+
+    return summary

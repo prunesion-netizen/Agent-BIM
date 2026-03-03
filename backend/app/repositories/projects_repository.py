@@ -12,9 +12,11 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.models.sql_models import (
+    AuditLogModel,
     GeneratedDocumentModel,
     ProjectContextModel,
     ProjectModel,
+    UploadedFileModel,
 )
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.schemas.project_context import ProjectContext
@@ -178,6 +180,97 @@ def list_verification_reports(
         .filter(
             GeneratedDocumentModel.project_id == project_id,
             GeneratedDocumentModel.doc_type == "bep_verification_report",
+        )
+        .order_by(desc(GeneratedDocumentModel.created_at))
+        .all()
+    )
+
+
+# ── CRUD UploadedFile ────────────────────────────────────────────────────
+
+def save_uploaded_file(
+    db: Session,
+    project_id: int,
+    filename: str,
+    file_path: str,
+    file_type: str = "ifc",
+    file_size_bytes: int | None = None,
+    parsed_summary_json: dict | None = None,
+) -> UploadedFileModel:
+    """Salvează metadata unui fișier uploadat."""
+    entry = UploadedFileModel(
+        project_id=project_id,
+        filename=filename,
+        file_path=file_path,
+        file_type=file_type,
+        file_size_bytes=file_size_bytes,
+        parsed_summary_json=parsed_summary_json,
+    )
+    db.add(entry)
+    db.flush()
+    return entry
+
+
+def get_latest_uploaded_file(
+    db: Session, project_id: int, file_type: str = "ifc"
+) -> UploadedFileModel | None:
+    """Returnează cel mai recent fișier uploadat de un anumit tip."""
+    return (
+        db.query(UploadedFileModel)
+        .filter(
+            UploadedFileModel.project_id == project_id,
+            UploadedFileModel.file_type == file_type,
+        )
+        .order_by(desc(UploadedFileModel.created_at))
+        .first()
+    )
+
+
+# ── CRUD AuditLog ────────────────────────────────────────────────────────
+
+def save_audit_log(
+    db: Session,
+    project_id: int,
+    action: str,
+    actor: str = "agent",
+    details_json: dict | None = None,
+) -> AuditLogModel:
+    """Salvează o intrare în jurnalul de audit."""
+    entry = AuditLogModel(
+        project_id=project_id,
+        action=action,
+        actor=actor,
+        details_json=details_json,
+    )
+    db.add(entry)
+    db.flush()
+    return entry
+
+
+def list_audit_logs(
+    db: Session, project_id: int, limit: int = 20
+) -> list[AuditLogModel]:
+    """Returnează ultimele N intrări din jurnalul de audit."""
+    return (
+        db.query(AuditLogModel)
+        .filter(AuditLogModel.project_id == project_id)
+        .order_by(desc(AuditLogModel.created_at))
+        .limit(limit)
+        .all()
+    )
+
+
+# ── BEP Documents listing ───────────────────────────────────────────────
+
+def list_bep_documents(
+    db: Session, project_id: int
+) -> list[GeneratedDocumentModel]:
+    """Returnează toate documentele BEP ale unui proiect (pentru versioning)."""
+    return (
+        db.query(GeneratedDocumentModel)
+        .filter(
+            GeneratedDocumentModel.project_id == project_id,
+            GeneratedDocumentModel.doc_type == "bep",
         )
         .order_by(desc(GeneratedDocumentModel.created_at))
         .all()

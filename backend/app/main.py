@@ -26,6 +26,11 @@ def _run_migrations() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _run_migrations()
+
+    # Pre-încarcă ChromaDB + SentenceTransformer în background
+    from app.services.standards_search import warmup
+    warmup()
+
     yield
 
 

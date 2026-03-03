@@ -1,7 +1,8 @@
 """
 sql_models.py — Modele SQLAlchemy 2.0 pentru Agent BIM.
 
-Tabele: projects, project_contexts, generated_documents.
+Tabele: projects, project_contexts, generated_documents,
+        agent_conversations, agent_messages.
 """
 
 from __future__ import annotations
@@ -92,4 +93,88 @@ class GeneratedDocumentModel(Base):
 
     __table_args__ = (
         Index("ix_generated_documents_project_doc_type", "project_id", "doc_type"),
+    )
+
+
+class UploadedFileModel(Base):
+    __tablename__ = "uploaded_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False, default="ifc")
+    file_size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    parsed_summary_json: Mapped[Optional[dict]] = mapped_column(_JsonType, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped[ProjectModel] = relationship()
+
+    __table_args__ = (
+        Index("ix_uploaded_files_project_type", "project_id", "file_type"),
+    )
+
+
+class AuditLogModel(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor: Mapped[str] = mapped_column(String(100), nullable=False, default="agent")
+    details_json: Mapped[Optional[dict]] = mapped_column(_JsonType, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    project: Mapped[ProjectModel] = relationship()
+
+
+class AgentConversationModel(Base):
+    __tablename__ = "agent_conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="Conversație nouă")
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped[ProjectModel] = relationship()
+    messages: Mapped[list[AgentMessageModel]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan",
+        order_by="AgentMessageModel.sequence_num",
+    )
+
+
+class AgentMessageModel(Base):
+    __tablename__ = "agent_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"), index=True
+    )
+    sequence_num: Mapped[int] = mapped_column(Integer, nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    tool_steps_json: Mapped[Optional[dict]] = mapped_column(_JsonType, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    conversation: Mapped[AgentConversationModel] = relationship(back_populates="messages")
+
+    __table_args__ = (
+        Index("ix_agent_messages_conv_seq", "conversation_id", "sequence_num"),
     )

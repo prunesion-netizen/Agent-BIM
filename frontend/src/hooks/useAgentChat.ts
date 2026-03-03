@@ -1,31 +1,107 @@
 /**
- * useAgentChat.ts — Custom hook pentru agent chat cu SSE streaming.
+ * useAgentChat.ts — Custom hook pentru agent chat cu SSE streaming + persistență conversații.
  *
  * Gestionează:
  * - Fetch SSE stream de la backend
  * - Parsarea event-urilor
  * - State management pentru mesaje și tool steps
+ * - Load/save conversații din/în PostgreSQL
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type {
   AgentMessage,
   ToolStep,
   AgentSSEEvent,
+  ConversationSummary,
+  ConversationDetail,
 } from "../types/agent";
 
 interface UseAgentChatReturn {
   messages: AgentMessage[];
   isLoading: boolean;
+  conversationId: number | null;
+  conversations: ConversationSummary[];
   sendMessage: (text: string) => void;
   clearMessages: () => void;
+  loadConversation: (id: number) => Promise<void>;
+  startNewConversation: () => void;
+  deleteConversation: (id: number) => Promise<void>;
+  refreshConversations: () => Promise<void>;
 }
 
 export default function useAgentChat(projectId: number | null): UseAgentChatReturn {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const nextId = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Încarcă lista conversațiilor la schimbarea proiectului
+  const refreshConversations = useCallback(async () => {
+    if (!projectId) {
+      setConversations([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/conversations`);
+      if (res.ok) {
+        const data: ConversationSummary[] = await res.json();
+        setConversations(data);
+      }
+    } catch {
+      // silently fail
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    refreshConversations();
+    // Reset la schimbare proiect
+    setConversationId(null);
+    setMessages([]);
+    nextId.current = 0;
+  }, [projectId, refreshConversations]);
+
+  // Încarcă o conversație existentă
+  const loadConversation = useCallback(
+    async (convId: number) => {
+      if (!projectId) return;
+      try {
+        const res = await fetch(
+          `/api/projects/${projectId}/conversations/${convId}`
+        );
+        if (!res.ok) return;
+        const detail: ConversationDetail = await res.json();
+
+        // Convertim mesajele din DB în AgentMessage[]
+        const loaded: AgentMessage[] = detail.messages.map((m) => ({
+          id: nextId.current++,
+          role: m.role as "user" | "assistant" | "system",
+          content: m.content,
+          toolSteps: m.tool_steps?.map((ts) => ({
+            ...ts,
+            status: ts.status as "running" | "completed" | "error",
+          })) ?? undefined,
+        }));
+
+        setConversationId(convId);
+        setMessages(loaded);
+      } catch {
+        // silently fail
+      }
+    },
+    [projectId]
+  );
+
+  // Conversație nouă
+  const startNewConversation = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort();
+    setConversationId(null);
+    setMessages([]);
+    nextId.current = 0;
+    setIsLoading(false);
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -39,9 +115,12 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
       };
 
       // Build conversation history from existing messages (text only)
-      const history = messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role, content: m.content }));
+      // Doar dacă NU avem conversation_id (backend va încărca din DB)
+      const history = conversationId
+        ? []
+        : messages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({ role: m.role, content: m.content }));
 
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
@@ -67,8 +146,8 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
           prev.map((m) =>
             m.id === assistantId
               ? { ...m, content, toolSteps: [...steps] }
-              : m,
-          ),
+              : m
+          )
         );
       };
 
@@ -82,10 +161,11 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               message: text,
+              conversation_id: conversationId,
               conversation_history: history,
             }),
             signal: abortRef.current.signal,
-          },
+          }
         );
 
         if (!res.ok) {
@@ -120,13 +200,20 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
               const dataStr = line.slice(6);
               try {
                 const event = JSON.parse(dataStr) as AgentSSEEvent;
-                processEvent(event, toolSteps, (t) => {
-                  fullText = t;
-                }, fullText);
-                updateAssistant(fullText, toolSteps);
+
+                // Handle conversation_meta separately
+                if (event.type === "conversation_meta") {
+                  setConversationId(event.conversation_id);
+                  // Refresh sidebar
+                  refreshConversations();
+                } else {
+                  processEvent(event, toolSteps, (t) => {
+                    fullText = t;
+                  }, fullText);
+                  updateAssistant(fullText, toolSteps);
+                }
               } catch {
                 // Incomplete JSON, keep in buffer
-                // Reconstruct remaining lines as buffer
                 const remaining = lines.slice(i).join("\n");
                 if (!remaining.endsWith("\n\n")) {
                   buffer = remaining;
@@ -153,25 +240,58 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
         abortRef.current = null;
       }
     },
-    [projectId, isLoading, messages],
+    [projectId, isLoading, messages, conversationId, refreshConversations]
   );
 
   const clearMessages = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
+    if (abortRef.current) abortRef.current.abort();
+    setConversationId(null);
     setMessages([]);
     setIsLoading(false);
+    nextId.current = 0;
   }, []);
 
-  return { messages, isLoading, sendMessage, clearMessages };
+  const deleteConversation = useCallback(
+    async (convId: number) => {
+      if (!projectId) return;
+      try {
+        await fetch(
+          `/api/projects/${projectId}/conversations/${convId}`,
+          { method: "DELETE" }
+        );
+        // Dacă era conversația activă, o resetăm
+        if (convId === conversationId) {
+          setConversationId(null);
+          setMessages([]);
+          nextId.current = 0;
+        }
+        await refreshConversations();
+      } catch {
+        // silently fail
+      }
+    },
+    [projectId, conversationId, refreshConversations]
+  );
+
+  return {
+    messages,
+    isLoading,
+    conversationId,
+    conversations,
+    sendMessage,
+    clearMessages,
+    loadConversation,
+    startNewConversation,
+    deleteConversation,
+    refreshConversations,
+  };
 }
 
 function processEvent(
   event: AgentSSEEvent,
   toolSteps: ToolStep[],
   setText: (text: string) => void,
-  currentText: string,
+  currentText: string
 ) {
   switch (event.type) {
     case "tool_call":
@@ -201,7 +321,7 @@ function processEvent(
       setText(
         currentText
           ? currentText + "\n\n**Eroare:** " + event.message
-          : "**Eroare:** " + event.message,
+          : "**Eroare:** " + event.message
       );
       break;
 

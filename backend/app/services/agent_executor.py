@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import time
+from dataclasses import dataclass, field
 from typing import AsyncGenerator
 
 from sqlalchemy.orm import Session
@@ -19,12 +20,25 @@ from sqlalchemy.orm import Session
 from app.ai_client import _get_client, MODEL
 from app.services.agent_prompts import build_system_prompt
 from app.services.agent_tools import AGENT_TOOLS, execute_tool
-from app.repositories.projects_repository import get_project
+from app.repositories.projects_repository import (
+    get_project,
+    get_latest_project_context,
+    get_latest_generated_document,
+    get_latest_uploaded_file,
+    list_verification_reports,
+)
 from app.schemas.converters import project_model_to_read
 
 logger = logging.getLogger(__name__)
 
 MAX_AGENT_TURNS = 10  # limită de siguranță pentru loop-ul agentului
+
+
+@dataclass
+class AgentResult:
+    """Rezultatul colectat din run_agent() pentru persistență."""
+    final_text: str = ""
+    tool_steps: list[dict] = field(default_factory=list)
 
 
 def _sse_event(event_type: str, data: dict) -> str:
@@ -50,11 +64,64 @@ def _build_messages(
     return messages
 
 
+def _build_context_summary(db: Session, project_id: int) -> dict | None:
+    """Construiește un sumar de context pentru system prompt."""
+    summary: dict = {}
+
+    # Context BEP
+    ctx_entry = get_latest_project_context(db, project_id)
+    if ctx_entry and ctx_entry.context_json:
+        ctx = ctx_entry.context_json
+        summary["disciplines"] = ctx.get("disciplines", [])
+        summary["bep_version"] = ctx.get("bep_version")
+
+    # BEP generat?
+    bep_doc = get_latest_generated_document(db, project_id, "bep")
+    summary["has_bep"] = bep_doc is not None
+
+    # IFC importat?
+    ifc_file = get_latest_uploaded_file(db, project_id, "ifc")
+    summary["has_ifc"] = ifc_file is not None
+
+    # Ultima verificare
+    reports = list_verification_reports(db, project_id)
+    if reports:
+        latest = reports[0]
+        summary["last_verification_status"] = latest.summary_status
+
+    # Health score (calcul simplu inline, fără import circular)
+    if ctx_entry and ctx_entry.context_json:
+        critical_fields = [
+            "project_name", "disciplines", "bim_objectives",
+            "lod_specification", "cde_platform", "team_roles",
+        ]
+        filled = sum(
+            1 for f in critical_fields
+            if ctx_entry.context_json.get(f) not in (None, "", [])
+        )
+        summary["health_score"] = round((filled / len(critical_fields)) * 100)
+    else:
+        summary["health_score"] = 0
+
+    # Alerte
+    alerts = []
+    if not summary["has_bep"] and ctx_entry:
+        alerts.append("Fișa BEP e completată dar BEP-ul nu a fost generat încă")
+    if summary["has_bep"] and not reports:
+        alerts.append("BEP-ul nu a fost verificat încă")
+    if summary.get("last_verification_status") == "fail":
+        alerts.append("Ultima verificare BEP a avut status FAIL")
+    summary["alerts"] = alerts
+
+    return summary if summary else None
+
+
 async def run_agent(
     db: Session,
     project_id: int,
     user_message: str,
     conversation_history: list[dict] | None = None,
+    collector: AgentResult | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Rulează agentul BIM și yield-uiește SSE events.
@@ -71,17 +138,20 @@ async def run_agent(
         project_id: ID-ul proiectului curent
         user_message: Mesajul utilizatorului
         conversation_history: Istoricul conversației (opțional)
+        collector: Dacă e furnizat, colectează textul final și tool_steps
 
     Yields:
         SSE events ca string-uri formatate
     """
-    # 1) Încarcă info proiect pentru system prompt
+    # 1) Încarcă info proiect + context extins pentru system prompt
     project = get_project(db, project_id)
     project_info = None
+    context_summary = None
     if project:
         project_info = project_model_to_read(project).model_dump()
+        context_summary = _build_context_summary(db, project_id)
 
-    system_prompt = build_system_prompt(project_info)
+    system_prompt = build_system_prompt(project_info, context_summary)
 
     # 2) Construiește mesajele inițiale
     messages = _build_messages(user_message, conversation_history)
@@ -89,6 +159,7 @@ async def run_agent(
     # 3) Agent loop
     client = _get_client()
     turns = 0
+    all_text_parts: list[str] = []
 
     while turns < MAX_AGENT_TURNS:
         turns += 1
@@ -129,6 +200,7 @@ async def run_agent(
         # 5) Emitem text dacă există
         if text_parts:
             full_text = "".join(text_parts)
+            all_text_parts.append(full_text)
             yield _sse_event("text_delta", {
                 "type": "text_delta",
                 "content": full_text,
@@ -136,6 +208,8 @@ async def run_agent(
 
         # 6) Dacă nu sunt tool calls, am terminat
         if not tool_uses:
+            if collector is not None:
+                collector.final_text = "\n\n".join(all_text_parts)
             yield _sse_event("done", {"type": "done"})
             return
 
@@ -182,6 +256,17 @@ async def run_agent(
                 "duration_ms": duration_ms,
             })
 
+            # Colectăm tool step pentru persistență
+            if collector is not None:
+                collector.tool_steps.append({
+                    "call_id": call_id,
+                    "tool_name": tool_name,
+                    "tool_input": tool_input,
+                    "result": result,
+                    "duration_ms": duration_ms,
+                    "status": "error" if result.get("error") else "completed",
+                })
+
             # Pregătim rezultatul pentru Claude
             tool_results_for_claude.append({
                 "type": "tool_result",
@@ -197,18 +282,24 @@ async def run_agent(
 
         # 9) Dacă stop_reason e "end_turn", am terminat
         if stop_reason == "end_turn":
+            if collector is not None:
+                collector.final_text = "\n\n".join(all_text_parts)
             yield _sse_event("done", {"type": "done"})
             return
 
         # Altfel, continuăm loop-ul (stop_reason == "tool_use")
 
     # Limita de iterații atinsă
+    limit_text = (
+        "Am atins limita de pași pentru această conversație. "
+        "Te rog reformulează cererea sau continuă cu un mesaj nou."
+    )
+    all_text_parts.append(limit_text)
+    if collector is not None:
+        collector.final_text = "\n\n".join(all_text_parts)
     yield _sse_event("text_delta", {
         "type": "text_delta",
-        "content": (
-            "Am atins limita de pași pentru această conversație. "
-            "Te rog reformulează cererea sau continuă cu un mesaj nou."
-        ),
+        "content": limit_text,
     })
     yield _sse_event("done", {"type": "done"})
 

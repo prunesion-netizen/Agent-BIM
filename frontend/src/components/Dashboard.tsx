@@ -356,6 +356,13 @@ export default function Dashboard({ onSelectProject }: Props) {
                     <div className="dashboard-actions">
                       <button
                         className="btn-primary btn-sm"
+                        onClick={() => onSelectProject(p.id, "agent")}
+                        title="Deschide Agent BIM"
+                      >
+                        Agent
+                      </button>
+                      <button
+                        className="btn-outline btn-sm"
                         onClick={() => onSelectProject(p.id, "bep")}
                         title="Deschide Fișa BEP"
                       >

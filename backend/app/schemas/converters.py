@@ -8,9 +8,16 @@ Folosite în endpoint-urile API pentru a transforma obiectele ORM
 from __future__ import annotations
 
 from app.models.sql_models import (
+    AgentConversationModel,
+    AgentMessageModel,
     GeneratedDocumentModel,
     ProjectContextModel,
     ProjectModel,
+)
+from app.schemas.agent import (
+    ConversationDetailRead,
+    ConversationRead,
+    MessageRead,
 )
 from app.schemas.project import (
     GeneratedDocumentRead,
@@ -70,4 +77,42 @@ def document_model_to_history_item(d: GeneratedDocumentModel) -> VerificationHis
         summary_status=d.summary_status,
         fail_count=d.fail_count,
         warning_count=d.warning_count,
+    )
+
+
+# ── Conversation converters ──────────────────────────────────────────────────
+
+def message_model_to_read(m: AgentMessageModel) -> MessageRead:
+    """Convertește un AgentMessageModel în MessageRead."""
+    return MessageRead(
+        id=m.id,
+        sequence_num=m.sequence_num,
+        role=m.role,
+        content=m.content,
+        tool_steps=m.tool_steps_json,
+        created_at=m.created_at.isoformat() if m.created_at else "",
+    )
+
+
+def conversation_model_to_read(c: AgentConversationModel) -> ConversationRead:
+    """Convertește un AgentConversationModel în ConversationRead (sumar)."""
+    return ConversationRead(
+        id=c.id,
+        project_id=c.project_id,
+        title=c.title,
+        message_count=len(c.messages) if c.messages else 0,
+        created_at=c.created_at.isoformat() if c.created_at else "",
+        updated_at=c.updated_at.isoformat() if c.updated_at else "",
+    )
+
+
+def conversation_model_to_detail(c: AgentConversationModel) -> ConversationDetailRead:
+    """Convertește un AgentConversationModel în ConversationDetailRead (cu mesaje)."""
+    return ConversationDetailRead(
+        id=c.id,
+        project_id=c.project_id,
+        title=c.title,
+        created_at=c.created_at.isoformat() if c.created_at else "",
+        updated_at=c.updated_at.isoformat() if c.updated_at else "",
+        messages=[message_model_to_read(m) for m in (c.messages or [])],
     )

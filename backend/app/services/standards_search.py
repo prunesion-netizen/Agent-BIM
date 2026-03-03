@@ -21,24 +21,30 @@ _client = None
 _collection = None
 _embed_model = None
 _initialized = False
+_initializing = False
 
 _EMBED_MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
 
 
 def _init_chroma():
     """Inițializează clientul ChromaDB (lazy, o singură dată)."""
-    global _client, _collection, _embed_model, _initialized
+    global _client, _collection, _embed_model, _initialized, _initializing
 
     if _initialized:
         return
 
-    _initialized = True
+    if _initializing:
+        return
+
+    _initializing = True
 
     try:
         import chromadb
         from sentence_transformers import SentenceTransformer
 
+        logger.info("Se încarcă modelul SentenceTransformer...")
         _embed_model = SentenceTransformer(_EMBED_MODEL_NAME)
+        logger.info("Model SentenceTransformer încărcat.")
 
         _client = chromadb.PersistentClient(path=_CHROMA_DB_PATH)
         _collection = _client.get_collection(name="bim_knowledge")
@@ -53,6 +59,21 @@ def _init_chroma():
         )
     except Exception as e:
         logger.warning(f"Eroare la inițializarea ChromaDB: {e}")
+    finally:
+        _initialized = True
+        _initializing = False
+
+
+def warmup():
+    """Pre-încarcă modelul la startup (apelat din lifespan)."""
+    import threading
+
+    def _bg():
+        logger.info("Warmup: pre-încărcare ChromaDB + SentenceTransformer...")
+        _init_chroma()
+        logger.info("Warmup complet.")
+
+    threading.Thread(target=_bg, daemon=True).start()
 
 
 def search_standards(query: str, n_results: int = 5) -> list[dict]:
