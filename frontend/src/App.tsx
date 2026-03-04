@@ -1,15 +1,27 @@
 import { useState, useCallback, lazy, Suspense } from "react";
+import { AuthProvider, useAuth } from "./contexts/AuthProvider";
 import { ProjectProvider, useProject } from "./contexts/ProjectProvider";
+import LoginPage from "./components/LoginPage";
 import ProjectSelector from "./components/ProjectSelector";
 import Dashboard from "./components/Dashboard";
 import ProjectContextFormDemo from "./components/ProjectContextFormDemo";
 import ChatExpert from "./components/ChatExpert";
 import AgentChat from "./components/AgentChat";
 import BepVerifier from "./components/BepVerifier";
+import ComplianceDashboard from "./components/ComplianceDashboard";
+import DeliveryPlan from "./components/DeliveryPlan";
+import EirPanel from "./components/EirPanel";
+import RaciMatrix from "./components/RaciMatrix";
+import LoinMatrix from "./components/LoinMatrix";
+import HandoverChecklist from "./components/HandoverChecklist";
+import ClashManager from "./components/ClashManager";
+import KpiDashboard from "./components/KpiDashboard";
+import CobieValidator from "./components/CobieValidator";
 
 const IfcViewer = lazy(() => import("./components/IfcViewer"));
 
-type Tab = "dashboard" | "bep" | "agent" | "chat" | "verifier" | "viewer";
+type Tab = "dashboard" | "bep" | "agent" | "chat" | "verifier" | "viewer" | "conformitate";
+type ConformitateSubView = "compliance" | "eir" | "tidp" | "raci" | "loin" | "handover" | "clash" | "kpi" | "cobie";
 
 export interface BepContext {
   projectCode: string;
@@ -19,8 +31,10 @@ export interface BepContext {
 
 function AppContent() {
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [subView, setSubView] = useState<ConformitateSubView>("compliance");
   const [bepCtx, setBepCtx] = useState<BepContext | null>(null);
   const { currentProject, selectProject } = useProject();
+  const { user, logout } = useAuth();
 
   const handleBepGenerated = useCallback((ctx: BepContext) => {
     setBepCtx(ctx);
@@ -40,6 +54,24 @@ function AppContent() {
 
   return (
     <div className="app-shell">
+      {/* ── Top bar: user info ── */}
+      {user && (
+        <div className="app-topbar">
+          <span className="app-topbar-brand">Agent BIM</span>
+          <div className="app-topbar-right">
+            <ProjectSelector />
+            <span className="user-badge">
+              {user.username}
+              <span className="user-badge-role">({user.role})</span>
+            </span>
+            <button className="logout-btn" onClick={logout}>
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab navigation ── */}
       <nav className="app-tabs">
         <div className="app-tabs-left">
           <button
@@ -81,6 +113,14 @@ function AppContent() {
             {bepCtx && <span className="app-tab-badge" />}
           </button>
           <button
+            className={`app-tab ${tab === "conformitate" ? "active" : ""}`}
+            onClick={() => setTab("conformitate")}
+          >
+            <span className="app-tab-icon">&#9878;</span>
+            Conformitate
+            {currentProject && <span className="app-tab-badge" />}
+          </button>
+          <button
             className={`app-tab ${tab === "viewer" ? "active" : ""}`}
             onClick={() => setTab("viewer")}
           >
@@ -89,11 +129,32 @@ function AppContent() {
             {currentProject && <span className="app-tab-badge" />}
           </button>
         </div>
-
-        <div className="app-tabs-right">
-          <ProjectSelector />
-        </div>
       </nav>
+
+      {/* ── Sub-navigation for Conformitate ── */}
+      {tab === "conformitate" && (
+        <nav className="app-subtabs">
+          {([
+            ["compliance", "ISO Compliance"],
+            ["eir", "EIR"],
+            ["tidp", "TIDP/MIDP"],
+            ["raci", "RACI"],
+            ["loin", "LOIN"],
+            ["handover", "Handover"],
+            ["clash", "Clash-uri"],
+            ["kpi", "KPI"],
+            ["cobie", "COBie"],
+          ] as [ConformitateSubView, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              className={`app-subtab ${subView === key ? "active" : ""}`}
+              onClick={() => setSubView(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <main className="app-main">
         {tab === "dashboard" && (
@@ -126,6 +187,19 @@ function AppContent() {
             projectId={currentProject?.id ?? null}
           />
         )}
+        {tab === "conformitate" && (
+          <>
+            {subView === "compliance" && <ComplianceDashboard />}
+            {subView === "eir" && <EirPanel />}
+            {subView === "tidp" && <DeliveryPlan />}
+            {subView === "raci" && <RaciMatrix />}
+            {subView === "loin" && <LoinMatrix />}
+            {subView === "handover" && <HandoverChecklist />}
+            {subView === "clash" && <ClashManager />}
+            {subView === "kpi" && <KpiDashboard />}
+            {subView === "cobie" && <CobieValidator />}
+          </>
+        )}
         {tab === "viewer" && (
           <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Se incarca Viewer 3D...</div>}>
             <IfcViewer projectId={currentProject?.id ?? null} />
@@ -136,11 +210,33 @@ function AppContent() {
   );
 }
 
-function App() {
+function AuthGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <p>Se incarca...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
   return (
     <ProjectProvider>
       <AppContent />
     </ProjectProvider>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }
 

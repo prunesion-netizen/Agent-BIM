@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { IFCLoader } from "web-ifc-three";
 import { IFCSPACE } from "web-ifc";
+import { useAuth } from "../contexts/AuthProvider";
 
 interface IfcInfo {
   filename: string;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function IfcViewer({ projectId }: Props) {
+  const { authFetch } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ifcInfo, setIfcInfo] = useState<IfcInfo | null>(null);
@@ -135,7 +137,7 @@ export default function IfcViewer({ projectId }: Props) {
 
     if (!projectId) return;
 
-    fetch(`/api/projects/${projectId}/ifc-info`)
+    authFetch(`/api/projects/${projectId}/ifc-info`)
       .then((res) => {
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -179,7 +181,7 @@ export default function IfcViewer({ projectId }: Props) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/ifc-file`);
+      const response = await authFetch(`/api/projects/${projectId}/ifc-file`);
       if (!response.ok) {
         throw new Error(
           response.status === 404

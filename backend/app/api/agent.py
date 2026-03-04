@@ -17,6 +17,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.schemas.agent import AgentChatRequest, ConversationCreate
 from app.repositories.projects_repository import get_project
 from app.repositories.conversations_repository import (
@@ -44,6 +46,7 @@ router = APIRouter()
 def api_list_conversations(
     project_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Returnează lista conversațiilor unui proiect."""
     project = get_project(db, project_id)
@@ -58,6 +61,7 @@ def api_create_conversation(
     project_id: int,
     body: ConversationCreate,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Creează o conversație nouă pentru un proiect."""
     project = get_project(db, project_id)
@@ -72,6 +76,7 @@ def api_get_conversation(
     project_id: int,
     conversation_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Returnează o conversație completă cu mesaje."""
     conv = get_conversation(db, conversation_id)
@@ -85,6 +90,7 @@ def api_delete_conversation(
     project_id: int,
     conversation_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Șterge o conversație."""
     conv = get_conversation(db, conversation_id)
@@ -101,6 +107,7 @@ async def api_agent_chat(
     project_id: int,
     request: AgentChatRequest,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """
     Agent BIM autonom cu tool use + SSE streaming + persistență conversații.

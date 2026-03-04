@@ -16,11 +16,20 @@ logger = logging.getLogger(__name__)
 
 
 def _run_migrations() -> None:
-    """Rulează Alembic upgrade head la startup."""
-    alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
-    alembic_cfg = Config(str(alembic_ini))
-    command.upgrade(alembic_cfg, "head")
-    logger.info("Alembic migrations applied successfully.")
+    """Rulează Alembic upgrade head la startup (sau create_all pentru SQLite)."""
+    from app.db import DATABASE_URL, engine
+
+    if DATABASE_URL.startswith("sqlite"):
+        # SQLite — creează direct tabelele din modele (skip Alembic)
+        from app.db import Base
+        import app.models.sql_models  # noqa: F401 — înregistrează modelele
+        Base.metadata.create_all(bind=engine)
+        logger.info("SQLite: all tables created via create_all().")
+    else:
+        alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+        alembic_cfg = Config(str(alembic_ini))
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations applied successfully.")
 
 
 @asynccontextmanager
@@ -65,6 +74,7 @@ def healthcheck():
 
 
 # ── Routere ───────────────────────────────────────────────────────────────────
+from app.api import auth  # noqa: E402
 from app.api import projects  # noqa: E402
 from app.api import bep  # noqa: E402
 from app.api import chat  # noqa: E402
@@ -73,7 +83,19 @@ from app.api import bep_verification  # noqa: E402
 from app.api import projects_dashboard  # noqa: E402
 from app.api import model_import  # noqa: E402
 from app.api import agent  # noqa: E402
+from app.api import cde  # noqa: E402
+from app.api import eir  # noqa: E402
+from app.api import deliverables  # noqa: E402
+from app.api import raci  # noqa: E402
+from app.api import loin  # noqa: E402
+from app.api import operational  # noqa: E402
+from app.api import security  # noqa: E402
+from app.api import clashes  # noqa: E402
+from app.api import kpis  # noqa: E402
+from app.api import compliance  # noqa: E402
+from app.api import cobie  # noqa: E402
 
+app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(projects_dashboard.router, prefix="/api", tags=["Projects Dashboard"])
 app.include_router(projects.router, prefix="/api", tags=["Projects"])
 app.include_router(bep.router, prefix="/api", tags=["BEP Generator"])
@@ -82,3 +104,14 @@ app.include_router(verifier.router, prefix="/api", tags=["BEP Verifier"])
 app.include_router(bep_verification.router, prefix="/api", tags=["BEP Verification"])
 app.include_router(model_import.router, prefix="/api", tags=["Model Import"])
 app.include_router(agent.router, prefix="/api", tags=["Agent BIM"])
+app.include_router(cde.router, prefix="/api", tags=["CDE Workflow"])
+app.include_router(eir.router, prefix="/api", tags=["EIR/AIR"])
+app.include_router(deliverables.router, prefix="/api", tags=["TIDP/MIDP"])
+app.include_router(raci.router, prefix="/api", tags=["RACI Matrix"])
+app.include_router(loin.router, prefix="/api", tags=["LOIN Matrix"])
+app.include_router(operational.router, prefix="/api", tags=["Handover"])
+app.include_router(security.router, prefix="/api", tags=["Security"])
+app.include_router(clashes.router, prefix="/api", tags=["Clash Management"])
+app.include_router(kpis.router, prefix="/api", tags=["KPI Tracking"])
+app.include_router(compliance.router, prefix="/api", tags=["ISO Compliance"])
+app.include_router(cobie.router, prefix="/api", tags=["COBie Validator"])

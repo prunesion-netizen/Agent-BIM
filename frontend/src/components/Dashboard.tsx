@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import StatusBadge from "./StatusBadge";
+import { useAuth } from "../contexts/AuthProvider";
 
 /* ── Types ── */
 
@@ -22,6 +23,13 @@ export type ProjectOverview = {
   health_score: number;
   has_ifc: boolean;
   health_alerts: string[];
+  // ISO 19650 fields
+  has_eir?: boolean;
+  tidp_completion?: number;
+  has_raci?: boolean;
+  has_security_plan?: boolean;
+  clash_open_count?: number;
+  bep_cde_state?: string | null;
   updated_at: string;
 };
 
@@ -101,6 +109,7 @@ const STATUS_COLORS: Record<string, string> = {
 /* ── Component ── */
 
 export default function Dashboard({ onSelectProject }: Props) {
+  const { authFetch } = useAuth();
   const [items, setItems] = useState<ProjectOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +123,7 @@ export default function Dashboard({ onSelectProject }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects/overview");
+      const res = await authFetch("/api/projects/overview");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ProjectOverview[] = await res.json();
       setItems(data);
@@ -123,7 +132,7 @@ export default function Dashboard({ onSelectProject }: Props) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     loadData();
@@ -369,6 +378,12 @@ export default function Dashboard({ onSelectProject }: Props) {
                         </span>
                         <span className={p.has_verifications ? "presence-ok" : "presence-no"} title="Verificare BEP efectuata">
                           {p.has_verifications ? "\u2713" : "\u2717"} Verif
+                        </span>
+                        <span className={p.has_eir ? "presence-ok" : "presence-no"} title="EIR definit">
+                          {p.has_eir ? "\u2713" : "\u2717"} EIR
+                        </span>
+                        <span className={p.has_raci ? "presence-ok" : "presence-no"} title="RACI definit">
+                          {p.has_raci ? "\u2713" : "\u2717"} RACI
                         </span>
                       </div>
                     </div>

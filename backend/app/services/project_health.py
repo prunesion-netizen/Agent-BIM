@@ -2,7 +2,7 @@
 project_health.py — Diagnostic sănătate proiect BIM.
 
 Calculează un scor de completitudine (0-100%) bazat pe câmpurile
-ProjectContext, alertează pe câmpuri lipsă, și oferă recomandări.
+ProjectContext + componente ISO 19650, alertează pe câmpuri lipsă, și oferă recomandări.
 """
 
 from __future__ import annotations
@@ -21,6 +21,16 @@ from app.repositories.projects_repository import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _days_old(dt: datetime.datetime | None) -> int | None:
+    """Calculează câte zile au trecut, gestionând naive vs aware datetimes."""
+    if dt is None:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return (now - dt).days
 
 # Câmpuri critice din ProjectContext cu greutatea lor (total = 100)
 _FIELD_WEIGHTS: dict[str, int] = {
@@ -49,14 +59,12 @@ def compute_project_health(db: Session, project_id: int) -> dict:
 
     Returns:
         Dict cu:
-        - score: 0-100 (completitudine)
+        - score: 0-100 (completitudine cu ISO bonus)
         - missing_fields: lista câmpurilor lipsă
         - alerts: lista alertelor temporale
         - recommendations: lista recomandărilor ordonate
-        - has_bep: bool
-        - has_ifc: bool
-        - has_verification: bool
-        - bep_version: str | None
+        - has_bep, has_ifc, has_verification, has_eir, has_raci, has_security_plan
+        - bep_version, bep_cde_state, tidp_completion, clash_open_count
         - last_verification_status: str | None
     """
     project = get_project(db, project_id)
@@ -80,6 +88,7 @@ def compute_project_health(db: Session, project_id: int) -> dict:
 
     # ── Scor completitudine context ──────────────────────────────────────
     ctx_entry = get_latest_project_context(db, project_id)
+    has_context = ctx_entry is not None
     total_weight = sum(_FIELD_WEIGHTS.values())
     earned = 0
 
@@ -107,8 +116,8 @@ def compute_project_health(db: Session, project_id: int) -> dict:
         result["bep_version"] = bep_doc.version
         # Alertă dacă BEP-ul e vechi
         if bep_doc.created_at:
-            days_old = (datetime.datetime.now(datetime.timezone.utc) - bep_doc.created_at).days
-            if days_old > 30:
+            days_old = _days_old(bep_doc.created_at)
+            if days_old and days_old > 30:
                 result["alerts"].append(
                     f"BEP-ul a fost generat acum {days_old} zile. "
                     "Consideră regenerarea pentru a reflecta schimbările recente."
@@ -144,8 +153,8 @@ def compute_project_health(db: Session, project_id: int) -> dict:
             )
         # Alertă dacă verificarea e veche
         if latest.created_at:
-            days_old = (datetime.datetime.now(datetime.timezone.utc) - latest.created_at).days
-            if days_old > 30:
+            days_old = _days_old(latest.created_at)
+            if days_old and days_old > 30:
                 result["alerts"].append(
                     f"Ultima verificare BEP a fost acum {days_old} zile. "
                     "Rulează o verificare nouă."
@@ -164,5 +173,100 @@ def compute_project_health(db: Session, project_id: int) -> dict:
         result["recommendations"].append(
             f"Completează câmpurile critice lipsă: {', '.join(critical_missing)}"
         )
+
+    # ── ISO 19650 Extended checks ──────────────────────────────────────────
+    from app.models.sql_models import (
+        ClashRecordModel,
+        CobieValidationModel,
+        DeliverableModel,
+        EirModel,
+        RaciEntryModel,
+        SecurityClassificationModel,
+    )
+
+    # EIR
+    eir = db.query(EirModel).filter(EirModel.project_id == project_id).first()
+    result["has_eir"] = eir is not None
+    if not eir:
+        result["recommendations"].append("Generează EIR (Exchange Information Requirements).")
+
+    # TIDP
+    deliverables = (
+        db.query(DeliverableModel)
+        .filter(DeliverableModel.project_id == project_id)
+        .all()
+    )
+    if deliverables:
+        completed = sum(1 for d in deliverables if d.status in ("completed", "delivered"))
+        result["tidp_completion"] = round((completed / len(deliverables)) * 100, 1)
+    else:
+        result["tidp_completion"] = 0.0
+        if has_context:
+            result["recommendations"].append("Generează TIDP (plan de livrare).")
+
+    # RACI
+    raci = db.query(RaciEntryModel).filter(RaciEntryModel.project_id == project_id).first()
+    result["has_raci"] = raci is not None
+    if not raci and has_context:
+        result["recommendations"].append("Generează matricea RACI.")
+
+    # Security
+    security = (
+        db.query(SecurityClassificationModel)
+        .filter(SecurityClassificationModel.project_id == project_id)
+        .first()
+    )
+    result["has_security_plan"] = security is not None
+
+    # Clash
+    open_clashes = (
+        db.query(ClashRecordModel)
+        .filter(
+            ClashRecordModel.project_id == project_id,
+            ClashRecordModel.status == "open",
+        )
+        .count()
+    )
+    result["clash_open_count"] = open_clashes
+    if open_clashes > 0:
+        result["alerts"].append(f"{open_clashes} clash-uri deschise necesită rezolvare.")
+
+    # CDE state
+    if bep_doc:
+        result["bep_cde_state"] = bep_doc.cde_state or "wip"
+    else:
+        result["bep_cde_state"] = None
+
+    # COBie
+    cobie = (
+        db.query(CobieValidationModel)
+        .filter(CobieValidationModel.project_id == project_id)
+        .order_by(CobieValidationModel.created_at.desc())
+        .first()
+    )
+    result["has_cobie"] = cobie is not None and cobie.overall_status in ("pass", "warning")
+    if not cobie:
+        result["recommendations"].append("Uploadează și validează un fișier COBie XLSX.")
+
+    # Adjust score with ISO components (bonus up to 24 points)
+    iso_bonus = 0
+    if eir:
+        iso_bonus += 4
+    if deliverables:
+        iso_bonus += 4
+    if raci:
+        iso_bonus += 4
+    if security:
+        iso_bonus += 4
+    if open_clashes == 0:
+        iso_bonus += 4
+    if cobie and cobie.overall_status in ("pass", "warning"):
+        iso_bonus += 4
+
+    # Recalculate score: base (80% weight) + ISO bonus (20% weight)
+    base_score = result["score"]
+    # iso_bonus is 0-24 scale, maps to 0-20% of total score
+    iso_pct = (iso_bonus / 24) * 100  # 0-100
+    result["score"] = min(100, round(base_score * 0.8 + iso_pct * 0.2))
 
     return result

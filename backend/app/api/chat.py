@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.services.chat_expert import chat_expert, chat_expert_copilot, store_bep
 from app.repositories.projects_repository import (
     get_project,
@@ -34,7 +36,7 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/chat-expert", response_model=ChatResponse)
-async def api_chat_expert(req: ChatRequest, db: Session = Depends(get_db)):
+async def api_chat_expert(req: ChatRequest, db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user)):
     """
     Răspunde la o întrebare BIM folosind contextul proiectului (legacy).
 
@@ -67,6 +69,7 @@ async def api_chat_copilot(
     project_id: int,
     req: CopilotChatRequest,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """
     Copilot BIM — răspunde folosind contextul complet al proiectului:

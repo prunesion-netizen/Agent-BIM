@@ -5,6 +5,7 @@ import ProjectContextForm from "./ProjectContextForm";
 import StatusBadge from "./StatusBadge";
 import { createDefaultProjectContext, type ProjectContext } from "../types/projectContext";
 import { useProject } from "../contexts/ProjectProvider";
+import { useAuth } from "../contexts/AuthProvider";
 import type { BepContext } from "../App";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 
 export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: Props) {
   const { currentProject, loadProjects } = useProject();
+  const { authFetch } = useAuth();
   const [ctx, setCtx] = useState<ProjectContext>(createDefaultProjectContext);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +34,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
         project_type: (currentProject.project_type as ProjectContext["project_type"]) || prev.project_type,
       }));
       // Try loading existing ProjectContext from backend
-      fetch(`/api/projects/${currentProject.id}`)
+      authFetch(`/api/projects/${currentProject.id}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => {
           if (data?.project_context?.context_json) {
@@ -72,6 +74,9 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       disciplines: (saved.disciplines as ProjectContext["disciplines"]) || [],
       cde_platform: (saved.cde_platform as ProjectContext["cde_platform"]) || "acc",
       main_exchange_format: (saved.main_exchange_format as ProjectContext["main_exchange_format"]) || "ifc4_3",
+      oir_requirements: (saved.oir_requirements as ProjectContext["oir_requirements"]) || [],
+      air_requirements: (saved.air_requirements as ProjectContext["air_requirements"]) || [],
+      pir_requirements: (saved.pir_requirements as ProjectContext["pir_requirements"]) || [],
     };
   }
 
@@ -135,6 +140,9 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       clash_detection_tool: c.clash_detection_tool,
       clash_tolerance_critical_dde: c.clash_tolerance_critical_dde || null,
       bim_kpis: c.bim_kpis.split("\n").filter(Boolean),
+      oir_requirements: c.oir_requirements,
+      air_requirements: c.air_requirements,
+      pir_requirements: c.pir_requirements,
     };
   }
 
@@ -157,7 +165,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
 
     try {
       // Use project-scoped endpoint
-      const res = await fetch(`/api/projects/${currentProject.id}/generate-bep`, {
+      const res = await authFetch(`/api/projects/${currentProject.id}/generate-bep`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -185,10 +193,33 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
     }
   }
 
+  async function handleGenerateDefaults() {
+    if (!currentProject) return;
+    try {
+      const res = await authFetch(
+        `/api/projects/${currentProject.id}/generate-requirements-defaults?project_type=${ctx.project_type}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCtx((prev) => ({
+          ...prev,
+          oir_requirements: data.oir || [],
+          pir_requirements: data.pir || [],
+          air_requirements: data.air || [],
+        }));
+        setSavedMsg(
+          `Cerinte generate: ${data.oir?.length || 0} OIR, ${data.pir?.length || 0} PIR, ${data.air?.length || 0} AIR`
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function handleDownloadDocx() {
     if (!currentProject) return;
     try {
-      const res = await fetch(`/api/projects/${currentProject.id}/export-bep-docx`);
+      const res = await authFetch(`/api/projects/${currentProject.id}/export-bep-docx`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         setError(err.detail || `Eroare la descarcarea DOCX: ${res.status}`);

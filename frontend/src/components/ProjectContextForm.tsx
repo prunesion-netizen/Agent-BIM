@@ -9,6 +9,7 @@ import type {
   ExchangeFormat,
   ClashTool,
   ClientType,
+  InformationRequirement,
 } from "../types/projectContext";
 
 interface Props {
@@ -449,6 +450,207 @@ export default function ProjectContextForm({ value, onChange }: Props) {
           </label>
         </div>
       </fieldset>
+
+      {/* ════════ SECTIUNEA 12 — OIR / PIR / AIR ════════ */}
+      <fieldset className="pcf-section">
+        <legend>12. Cerinte informationale OIR / PIR / AIR (ISO 19650)</legend>
+        <p style={{ color: "#64748b", fontSize: 13, margin: "0 0 12px" }}>
+          Cascada ISO 19650-1: OIR (organizatie) &rarr; PIR (proiect) &rarr; AIR (active) &rarr; EIR (schimb).
+          Apasa &quot;Genereaza cerinte default&quot; din butonul de sub formular pentru template-uri per tip proiect.
+        </p>
+
+        <RequirementsTable
+          label="OIR — Organizational Information Requirements"
+          items={value.oir_requirements}
+          prefix="OIR"
+          onChange={(items) => set("oir_requirements", items)}
+        />
+        <RequirementsTable
+          label="PIR — Project Information Requirements"
+          items={value.pir_requirements}
+          prefix="PIR"
+          onChange={(items) => set("pir_requirements", items)}
+        />
+        <RequirementsTable
+          label="AIR — Asset Information Requirements"
+          items={value.air_requirements}
+          prefix="AIR"
+          showAssets
+          onChange={(items) => set("air_requirements", items)}
+        />
+      </fieldset>
+    </div>
+  );
+}
+
+
+/* ── RequirementsTable — sub-component editabil ──────────────────────── */
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "#ef4444",
+  medium: "#f59e0b",
+  low: "#22c55e",
+};
+
+function RequirementsTable({
+  label,
+  items,
+  prefix,
+  showAssets,
+  onChange,
+}: {
+  label: string;
+  items: InformationRequirement[];
+  prefix: string;
+  showAssets?: boolean;
+  onChange: (items: InformationRequirement[]) => void;
+}) {
+  const addRow = () => {
+    const nextId = `${prefix}-${String(items.length + 1).padStart(2, "0")}`;
+    onChange([
+      ...items,
+      {
+        id: nextId,
+        category: "",
+        description: "",
+        priority: "medium",
+        success_criteria: "",
+        related_assets: [],
+        related_deliverables: [],
+      },
+    ]);
+  };
+
+  const updateRow = (idx: number, field: keyof InformationRequirement, val: unknown) => {
+    const next = items.map((item, i) =>
+      i === idx ? { ...item, [field]: val } : item
+    );
+    onChange(next);
+  };
+
+  const removeRow = (idx: number) => {
+    onChange(items.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <strong style={{ fontSize: 13 }}>{label}</strong>
+        <span style={{ color: "#94a3b8", fontSize: 12 }}>({items.length})</span>
+      </div>
+      {items.length > 0 && (
+        <table className="raci-table" style={{ width: "100%", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th style={{ width: 70 }}>ID</th>
+              <th style={{ width: 110 }}>Categorie</th>
+              <th>Descriere</th>
+              <th style={{ width: 80 }}>Prioritate</th>
+              <th>Criteriu succes</th>
+              {showAssets && <th style={{ width: 140 }}>Active</th>}
+              <th style={{ width: 36 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => (
+              <tr key={item.id + idx}>
+                <td>
+                  <input
+                    value={item.id}
+                    onChange={(e) => updateRow(idx, "id", e.target.value)}
+                    style={{ width: "100%", fontSize: 12, padding: 2 }}
+                  />
+                </td>
+                <td>
+                  <input
+                    value={item.category}
+                    onChange={(e) => updateRow(idx, "category", e.target.value)}
+                    style={{ width: "100%", fontSize: 12, padding: 2 }}
+                    placeholder="Strategie..."
+                  />
+                </td>
+                <td>
+                  <input
+                    value={item.description}
+                    onChange={(e) => updateRow(idx, "description", e.target.value)}
+                    style={{ width: "100%", fontSize: 12, padding: 2 }}
+                    placeholder="Descriere cerinta..."
+                  />
+                </td>
+                <td>
+                  <select
+                    value={item.priority}
+                    onChange={(e) => updateRow(idx, "priority", e.target.value)}
+                    style={{
+                      width: "100%",
+                      fontSize: 12,
+                      padding: 2,
+                      color: PRIORITY_COLORS[item.priority],
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="high">HIGH</option>
+                    <option value="medium">MEDIUM</option>
+                    <option value="low">LOW</option>
+                  </select>
+                </td>
+                <td>
+                  <input
+                    value={item.success_criteria ?? ""}
+                    onChange={(e) => updateRow(idx, "success_criteria", e.target.value)}
+                    style={{ width: "100%", fontSize: 12, padding: 2 }}
+                    placeholder="Cum se verifica..."
+                  />
+                </td>
+                {showAssets && (
+                  <td>
+                    <input
+                      value={item.related_assets.join(", ")}
+                      onChange={(e) =>
+                        updateRow(idx, "related_assets", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))
+                      }
+                      style={{ width: "100%", fontSize: 12, padding: 2 }}
+                      placeholder="HVAC, Lifturi..."
+                    />
+                  </td>
+                )}
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(idx)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      padding: 0,
+                    }}
+                    title="Sterge"
+                  >
+                    &times;
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <button
+        type="button"
+        onClick={addRow}
+        style={{
+          marginTop: 4,
+          padding: "4px 12px",
+          fontSize: 12,
+          background: "#f1f5f9",
+          border: "1px solid #cbd5e1",
+          borderRadius: 4,
+          cursor: "pointer",
+        }}
+      >
+        + Adauga {prefix}
+      </button>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import StatusBadge from "./StatusBadge";
+import { useAuth } from "../contexts/AuthProvider";
 import type { BepContext } from "../App";
 
 interface Props {
@@ -44,6 +45,7 @@ const SUGGESTIONS_VERIFIED = [
 ];
 
 export default function ChatExpert({ bepContext, projectId, projectStatus }: Props) {
+  const { authFetch } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,7 @@ export default function ChatExpert({ bepContext, projectId, projectStatus }: Pro
       const body = projectId
         ? { message: text }
         : { message: text, project_id: null };
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

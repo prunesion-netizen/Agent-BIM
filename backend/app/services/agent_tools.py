@@ -2,20 +2,21 @@
 agent_tools.py — Definirea tool-urilor agentului BIM (Anthropic tool schemas)
 și funcțiile handler care refolosesc serviciile existente.
 
-13 tool-uri:
-1. get_project_info       — Info proiect + status
-2. get_project_context    — Fișa completă BEP (ProjectContext)
-3. generate_bep           — Generare BEP complet
-4. verify_bep             — Verificare BEP vs Model
-5. export_bep_docx        — Returnează URL descărcare DOCX
-6. update_project_context — Update câmpuri specifice
-7. get_verification_history — Istoric verificări
-8. search_bim_standards   — Căutare standarde BIM (ChromaDB)
-9. analyze_ifc_model      — Analizează modelul IFC importat
-10. list_document_versions — Lista versiuni BEP
-11. compare_bep_versions  — Comparare între versiuni BEP
-12. get_audit_trail       — Jurnal activități proiect
-13. get_project_health_check — Diagnostic sănătate proiect
+27 tool-uri (13 originale + 14 ISO 19650/COBie):
+ 1. get_project_info        14. get_document_cde_status
+ 2. get_project_context     15. transition_document_state
+ 3. generate_bep            16. generate_eir
+ 4. verify_bep              17. get_delivery_plan
+ 5. export_bep_docx         18. update_deliverable_status
+ 6. update_project_context  19. generate_raci_matrix
+ 7. get_verification_history 20. get_raci_matrix
+ 8. search_bim_standards    21. get_loin_matrix
+ 9. analyze_ifc_model       22. get_handover_status
+10. list_document_versions  23. get_security_classification
+11. compare_bep_versions    24. get_clash_summary
+12. get_audit_trail         25. get_kpi_dashboard
+13. get_project_health_check 26. check_iso_compliance
+                             27. validate_cobie
 """
 
 from __future__ import annotations
@@ -58,6 +59,20 @@ from app.services.standards_search import search_standards
 from app.services.audit import log_action
 from app.services.bep_diff import compare_bep_versions as _diff_bep
 from app.services.project_health import compute_project_health
+from app.services.cde_workflow import get_document_cde_status as _get_cde_status
+from app.services.cde_workflow import transition_document_state as _transition_state
+from app.services.eir_generator import generate_eir as _generate_eir
+from app.services.delivery_plan import get_delivery_plan as _get_delivery_plan
+from app.services.delivery_plan import update_deliverable_status as _update_deliverable
+from app.services.raci_generator import generate_raci_matrix as _generate_raci
+from app.services.raci_generator import get_raci_matrix as _get_raci
+from app.services.loin_generator import get_loin_matrix as _get_loin
+from app.services.handover import get_handover_status as _get_handover
+from app.services.security_plan import get_security_classification as _get_security
+from app.services.clash_manager import get_clash_summary as _get_clash_summary
+from app.services.kpi_tracker import get_kpi_dashboard as _get_kpi
+from app.services.iso_compliance_checker import check_full_compliance as _check_compliance
+from app.services.cobie_validator import get_latest_cobie_validation as _get_latest_cobie
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +321,265 @@ AGENT_TOOLS: list[dict] = [
             "Verifică sănătatea proiectului BIM: scor completitudine (0-100%), "
             "câmpuri lipsă, alerte temporale, recomandări prioritizate. "
             "Folosește pentru a ghida utilizatorul spre pașii următori."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    # ── Tool-uri noi ISO 19650 (Faze 1-5) ──────────────────────────────
+    {
+        "name": "get_document_cde_status",
+        "description": (
+            "Returnează statusul CDE (Common Data Environment) al unui document: "
+            "starea curentă (WIP/Shared/Published/Archived), istoricul tranzițiilor, "
+            "și lanțul de aprobare (checker/approver)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "document_id": {
+                    "type": "integer",
+                    "description": "ID-ul documentului",
+                },
+            },
+            "required": ["document_id"],
+        },
+    },
+    {
+        "name": "transition_document_state",
+        "description": (
+            "Efectuează o tranziție CDE pe un document: WIP → Shared → Published → Archived. "
+            "Validează tranziția și necesitatea aprobărilor."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "document_id": {
+                    "type": "integer",
+                    "description": "ID-ul documentului",
+                },
+                "target_state": {
+                    "type": "string",
+                    "description": "Starea țintă: wip, shared, published, archived",
+                    "enum": ["wip", "shared", "published", "archived"],
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Motivul tranziției (opțional)",
+                },
+            },
+            "required": ["document_id", "target_state"],
+        },
+    },
+    {
+        "name": "generate_eir",
+        "description": (
+            "Generează Exchange Information Requirements (EIR) conform ISO 19650-2 "
+            "din fișa proiectului. Include cerințe de informare, securitate, "
+            "criterii de acceptare și calendar livrare."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_delivery_plan",
+        "description": (
+            "Returnează planul de livrare (TIDP/MIDP) al proiectului: "
+            "livrabile grupate pe disciplină, status, deadline-uri, % completare."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "update_deliverable_status",
+        "description": (
+            "Actualizează statusul unui livrabil din TIDP: "
+            "planned → in_progress → completed / delivered."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "deliverable_id": {
+                    "type": "integer",
+                    "description": "ID-ul livrabilului",
+                },
+                "new_status": {
+                    "type": "string",
+                    "description": "Noul status: planned, in_progress, completed, delivered",
+                },
+            },
+            "required": ["deliverable_id", "new_status"],
+        },
+    },
+    {
+        "name": "generate_raci_matrix",
+        "description": (
+            "Generează matricea RACI (Responsible, Accountable, Consulted, Informed) "
+            "din echipa proiectului și disciplinele definite. "
+            "Include task-uri BIM standard ISO 19650."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_raci_matrix",
+        "description": (
+            "Returnează matricea RACI curentă a proiectului: "
+            "task-uri, roluri, asignări (R/A/C/I)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_loin_matrix",
+        "description": (
+            "Returnează matricea LOIN (Level of Information Need — BS EN 17412-1): "
+            "nivel de detaliu per element IFC, disciplină și fază."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_handover_status",
+        "description": (
+            "Returnează statusul checklist-ului de predare (handover) conform ISO 19650-3: "
+            "elemente per categorie, % completare, elemente necompletate."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_security_classification",
+        "description": (
+            "Returnează clasificarea de securitate a informațiilor conform ISO 19650-5: "
+            "nivel clasificare, plan securitate, zone sensibile."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_clash_summary",
+        "description": (
+            "Returnează sumarul clash-urilor din proiect: "
+            "total, deschise, rezolvate, pe severitate, pe perechi discipline."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "get_kpi_dashboard",
+        "description": (
+            "Returnează dashboard-ul KPI al proiectului: "
+            "scor per KPI (compliance BEP, livrare, clash resolution, model completeness), "
+            "scor overall, trend-uri."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "check_iso_compliance",
+        "description": (
+            "Verificare conformitate completă ISO 19650 parts 1-5. "
+            "Returnează scor per parte (1: concepte, 2: livrare, 3: operațional, 5: securitate), "
+            "scor overall, checks individuali, recomandări."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "integer",
+                    "description": "ID-ul proiectului",
+                },
+            },
+            "required": ["project_id"],
+        },
+    },
+    {
+        "name": "validate_cobie",
+        "description": (
+            "Validează cel mai recent fișier COBie XLSX uploadat pentru proiect. "
+            "Verifică structura (16 sheet-uri standard, coloane obligatorii) și "
+            "conformitatea cu ProjectContext. Returnează scor, status per sheet, "
+            "verificări project-specific și recomandări."
         ),
         "input_schema": {
             "type": "object",
@@ -797,6 +1071,135 @@ def handle_get_project_health_check(db: Session, tool_input: dict) -> dict:
     return compute_project_health(db, project_id)
 
 
+# ── Handleri noi ISO 19650 ────────────────────────────────────────────────
+
+def handle_get_document_cde_status(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_document_cde_status."""
+    document_id = tool_input["document_id"]
+    return _get_cde_status(db, document_id)
+
+
+def handle_transition_document_state(db: Session, tool_input: dict) -> dict:
+    """Handler pentru transition_document_state."""
+    document_id = tool_input["document_id"]
+    target_state = tool_input["target_state"]
+    reason = tool_input.get("reason")
+    try:
+        entry = _transition_state(db, document_id, target_state, reason=reason)
+        return {
+            "success": True,
+            "new_state": entry.state,
+            "previous_state": entry.previous_state,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_generate_eir(db: Session, tool_input: dict) -> dict:
+    """Handler pentru generate_eir."""
+    project_id = tool_input["project_id"]
+    return _generate_eir(db, project_id)
+
+
+def handle_get_delivery_plan(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_delivery_plan."""
+    project_id = tool_input["project_id"]
+    return _get_delivery_plan(db, project_id)
+
+
+def handle_update_deliverable_status(db: Session, tool_input: dict) -> dict:
+    """Handler pentru update_deliverable_status."""
+    deliverable_id = tool_input["deliverable_id"]
+    new_status = tool_input["new_status"]
+    return _update_deliverable(db, deliverable_id, new_status)
+
+
+def handle_generate_raci_matrix(db: Session, tool_input: dict) -> dict:
+    """Handler pentru generate_raci_matrix."""
+    project_id = tool_input["project_id"]
+    return _generate_raci(db, project_id)
+
+
+def handle_get_raci_matrix(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_raci_matrix."""
+    project_id = tool_input["project_id"]
+    return _get_raci(db, project_id)
+
+
+def handle_get_loin_matrix(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_loin_matrix."""
+    project_id = tool_input["project_id"]
+    return _get_loin(db, project_id)
+
+
+def handle_get_handover_status(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_handover_status."""
+    project_id = tool_input["project_id"]
+    return _get_handover(db, project_id)
+
+
+def handle_get_security_classification(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_security_classification."""
+    project_id = tool_input["project_id"]
+    return _get_security(db, project_id)
+
+
+def handle_get_clash_summary(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_clash_summary."""
+    project_id = tool_input["project_id"]
+    return _get_clash_summary(db, project_id)
+
+
+def handle_get_kpi_dashboard(db: Session, tool_input: dict) -> dict:
+    """Handler pentru get_kpi_dashboard."""
+    project_id = tool_input["project_id"]
+    return _get_kpi(db, project_id)
+
+
+def handle_check_iso_compliance(db: Session, tool_input: dict) -> dict:
+    """Handler pentru check_iso_compliance."""
+    project_id = tool_input["project_id"]
+    return _check_compliance(db, project_id)
+
+
+def handle_validate_cobie(db: Session, tool_input: dict) -> dict:
+    """Handler pentru validate_cobie — returnează ultima validare COBie."""
+    project_id = tool_input["project_id"]
+    project = get_project(db, project_id)
+    if not project:
+        return {"error": f"Proiectul cu ID {project_id} nu există."}
+
+    validation = _get_latest_cobie(db, project_id)
+    if not validation:
+        return {
+            "error": (
+                "Nu există validări COBie pentru acest proiect. "
+                "Utilizatorul trebuie să uploade un fișier COBie XLSX "
+                "din tab-ul Conformitate → COBie."
+            ),
+        }
+
+    results = validation.results_json or {}
+    return {
+        "success": True,
+        "message": (
+            f"Ultima validare COBie: {validation.filename} — "
+            f"scor {validation.score}%, status: {validation.overall_status}."
+        ),
+        "filename": validation.filename,
+        "score": validation.score,
+        "overall_status": validation.overall_status,
+        "total_checks": validation.total_checks,
+        "pass_count": validation.pass_count,
+        "warning_count": validation.warning_count,
+        "fail_count": validation.fail_count,
+        "sheet_checks": results.get("sheet_checks", []),
+        "project_checks": results.get("project_checks", []),
+        "recommendations": results.get("recommendations", []),
+        "validated_at": validation.created_at.isoformat() if validation.created_at else "",
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Dispatcher — execută tool-ul corect pe baza numelui
 # ══════════════════════════════════════════════════════════════════════════════
@@ -815,6 +1218,21 @@ TOOL_HANDLERS: dict[str, Any] = {
     "compare_bep_versions": handle_compare_bep_versions,
     "get_audit_trail": handle_get_audit_trail,
     "get_project_health_check": handle_get_project_health_check,
+    # ISO 19650 tools
+    "get_document_cde_status": handle_get_document_cde_status,
+    "transition_document_state": handle_transition_document_state,
+    "generate_eir": handle_generate_eir,
+    "get_delivery_plan": handle_get_delivery_plan,
+    "update_deliverable_status": handle_update_deliverable_status,
+    "generate_raci_matrix": handle_generate_raci_matrix,
+    "get_raci_matrix": handle_get_raci_matrix,
+    "get_loin_matrix": handle_get_loin_matrix,
+    "get_handover_status": handle_get_handover_status,
+    "get_security_classification": handle_get_security_classification,
+    "get_clash_summary": handle_get_clash_summary,
+    "get_kpi_dashboard": handle_get_kpi_dashboard,
+    "check_iso_compliance": handle_check_iso_compliance,
+    "validate_cobie": handle_validate_cobie,
 }
 
 

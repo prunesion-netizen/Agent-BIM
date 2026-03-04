@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.schemas.model_summary import ModelSummary
 from app.ai_client import call_llm_bep_verifier
 from app.repositories.projects_repository import (
@@ -36,6 +38,7 @@ def api_verify_bep_model(
     project_id: int,
     model_summary: ModelSummary,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """
     Verifică conformitatea BEP vs Model BIM pentru un proiect.
@@ -135,6 +138,7 @@ def api_verify_bep_model(
 def api_verification_history(
     project_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Returnează istoricul verificărilor BEP vs Model pentru un proiect."""
     project = get_project(db, project_id)

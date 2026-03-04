@@ -3,9 +3,11 @@ verifier.py — Router API pentru verificarea conformității BEP vs Model BIM.
 POST /api/verify-bep — primește model_summary, returnează raport de verificare.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.services.bep_verifier import verify_bep
 
 router = APIRouter()
@@ -23,7 +25,7 @@ class VerifyBepResponse(BaseModel):
 
 
 @router.post("/verify-bep", response_model=VerifyBepResponse)
-def api_verify_bep(req: VerifyBepRequest):
+def api_verify_bep(req: VerifyBepRequest, _user: UserModel = Depends(get_current_user)):
     """
     Verifică conformitatea BEP vs Model BIM.
 

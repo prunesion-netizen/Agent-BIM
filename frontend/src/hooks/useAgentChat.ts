@@ -9,6 +9,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useAuth } from "../contexts/AuthProvider";
 import type {
   AgentMessage,
   ToolStep,
@@ -31,6 +32,7 @@ interface UseAgentChatReturn {
 }
 
 export default function useAgentChat(projectId: number | null): UseAgentChatReturn {
+  const { authFetch } = useAuth();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
@@ -45,7 +47,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
       return;
     }
     try {
-      const res = await fetch(`/api/projects/${projectId}/conversations`);
+      const res = await authFetch(`/api/projects/${projectId}/conversations`);
       if (res.ok) {
         const data: ConversationSummary[] = await res.json();
         setConversations(data);
@@ -53,7 +55,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
     } catch {
       // silently fail
     }
-  }, [projectId]);
+  }, [projectId, authFetch]);
 
   useEffect(() => {
     refreshConversations();
@@ -68,7 +70,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
     async (convId: number) => {
       if (!projectId) return;
       try {
-        const res = await fetch(
+        const res = await authFetch(
           `/api/projects/${projectId}/conversations/${convId}`
         );
         if (!res.ok) return;
@@ -91,7 +93,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
         // silently fail
       }
     },
-    [projectId]
+    [projectId, authFetch]
   );
 
   // Conversație nouă
@@ -154,7 +156,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
       try {
         abortRef.current = new AbortController();
 
-        const res = await fetch(
+        const res = await authFetch(
           `/api/projects/${projectId}/agent-chat`,
           {
             method: "POST",
@@ -240,7 +242,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
         abortRef.current = null;
       }
     },
-    [projectId, isLoading, messages, conversationId, refreshConversations]
+    [projectId, isLoading, messages, conversationId, refreshConversations, authFetch]
   );
 
   const clearMessages = useCallback(() => {
@@ -255,7 +257,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
     async (convId: number) => {
       if (!projectId) return;
       try {
-        await fetch(
+        await authFetch(
           `/api/projects/${projectId}/conversations/${convId}`,
           { method: "DELETE" }
         );
@@ -270,7 +272,7 @@ export default function useAgentChat(projectId: number | null): UseAgentChatRetu
         // silently fail
       }
     },
-    [projectId, conversationId, refreshConversations]
+    [projectId, conversationId, refreshConversations, authFetch]
   );
 
   return {

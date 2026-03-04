@@ -69,6 +69,8 @@ class GeneratedDocumentRead(BaseModel):
     summary_status: str | None = None
     fail_count: int | None = None
     warning_count: int | None = None
+    cde_state: str | None = "wip"
+    approval_status: str | None = "draft"
     created_at: str
 
 
@@ -103,6 +105,13 @@ class ProjectOverview(BaseModel):
     health_score: int = 0
     has_ifc: bool = False
     health_alerts: list[str] = []
+    # ISO 19650 fields
+    has_eir: bool = False
+    tidp_completion: float = 0.0
+    has_raci: bool = False
+    has_security_plan: bool = False
+    clash_open_count: int = 0
+    bep_cde_state: str | None = None
     updated_at: str
 
 

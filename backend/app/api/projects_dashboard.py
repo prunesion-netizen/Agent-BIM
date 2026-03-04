@@ -11,6 +11,8 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel as _UserModel
+from app.services.auth import get_current_user
 from app.models.sql_models import GeneratedDocumentModel, ProjectModel
 from app.schemas.project import ProjectOverview
 from app.services.project_health import compute_project_health
@@ -79,12 +81,19 @@ def _build_overview(db: Session, project: ProjectModel) -> ProjectOverview:
         health_score=health_score,
         has_ifc=has_ifc,
         health_alerts=health_alerts,
+        # ISO 19650 fields
+        has_eir=health.get("has_eir", False),
+        tidp_completion=health.get("tidp_completion", 0.0),
+        has_raci=health.get("has_raci", False),
+        has_security_plan=health.get("has_security_plan", False),
+        clash_open_count=health.get("clash_open_count", 0),
+        bep_cde_state=health.get("bep_cde_state"),
         updated_at=project.updated_at.isoformat() if project.updated_at else "",
     )
 
 
 @router.get("/projects/overview", response_model=list[ProjectOverview])
-def api_projects_overview(db: Session = Depends(get_db)):
+def api_projects_overview(db: Session = Depends(get_db), _user: _UserModel = Depends(get_current_user)):
     """Dashboard overview — toate proiectele cu date agregate BEP + verificări."""
     projects = (
         db.query(ProjectModel)

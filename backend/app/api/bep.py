@@ -20,6 +20,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.schemas.project_context import ProjectContext
 from app.schemas.converters import project_model_to_read, document_model_to_read
 from app.services.bep_generator import generate_bep
@@ -44,6 +46,7 @@ def api_generate_bep_for_project(
     project_id: int,
     project_context: ProjectContext,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """
     Generează un BEP pentru un proiect specific.
@@ -103,6 +106,7 @@ def api_generate_bep_for_project(
 def api_export_bep_docx_for_project(
     project_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Exportă BEP-ul unui proiect ca DOCX (din repository)."""
     project = get_project(db, project_id)
@@ -128,7 +132,7 @@ def api_export_bep_docx_for_project(
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.post("/generate-bep")
-def api_generate_bep(project_context: ProjectContext):
+def api_generate_bep(project_context: ProjectContext, _user: UserModel = Depends(get_current_user)):
     """Legacy: generează BEP fără project_id."""
     try:
         result = generate_bep(project_context)
@@ -144,7 +148,7 @@ class StoreBepRequest(BaseModel):
 
 
 @router.post("/store-bep")
-def api_store_bep(req: StoreBepRequest):
+def api_store_bep(req: StoreBepRequest, _user: UserModel = Depends(get_current_user)):
     """Stochează manual un BEP pentru Chat Expert."""
     if not req.project_code.strip():
         raise HTTPException(status_code=400, detail="project_code nu poate fi gol.")
@@ -153,7 +157,7 @@ def api_store_bep(req: StoreBepRequest):
 
 
 @router.get("/export-bep-docx/{project_code}")
-def api_export_bep_docx(project_code: str):
+def api_export_bep_docx(project_code: str, _user: UserModel = Depends(get_current_user)):
     """Legacy: exportă BEP ca DOCX după project_code."""
     content = get_bep_content(project_code)
     if not content:
@@ -169,6 +173,6 @@ def api_export_bep_docx(project_code: str):
 
 
 @router.get("/bep-projects")
-def api_bep_projects():
+def api_bep_projects(_user: UserModel = Depends(get_current_user)):
     """Returnează lista de proiecte cu BEP stocat."""
     return {"projects": get_stored_projects()}

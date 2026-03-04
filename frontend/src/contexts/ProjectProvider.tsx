@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { useAuth } from "./AuthProvider";
 
 /* ── Types ── */
 export interface ProjectRead {
@@ -50,6 +51,7 @@ export function useProject(): ProjectCtx {
 
 /* ── Provider ── */
 export function ProjectProvider({ children }: { children: ReactNode }) {
+  const { authFetch } = useAuth();
   const [projects, setProjects] = useState<ProjectRead[]>([]);
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const loadProjects = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/projects");
+      const res = await authFetch("/api/projects");
       if (res.ok) {
         const data: ProjectRead[] = await res.json();
         setProjects(data);
@@ -73,7 +75,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentId]);
+  }, [currentId, authFetch]);
 
   const selectProject = useCallback((id: number) => {
     setCurrentId(id);
@@ -81,7 +83,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const createProject = useCallback(
     async (data: ProjectCreate): Promise<ProjectRead> => {
-      const res = await fetch("/api/projects", {
+      const res = await authFetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -95,12 +97,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setCurrentId(project.id);
       return project;
     },
-    [],
+    [authFetch],
   );
 
   const updateProject = useCallback(
     async (id: number, data: ProjectUpdate): Promise<ProjectRead> => {
-      const res = await fetch(`/api/projects/${id}`, {
+      const res = await authFetch(`/api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -113,12 +115,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
       return updated;
     },
-    [],
+    [authFetch],
   );
 
   const deleteProject = useCallback(
     async (id: number): Promise<void> => {
-      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      const res = await authFetch(`/api/projects/${id}`, { method: "DELETE" });
       if (!res.ok && res.status !== 204) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         throw new Error(err.detail || "Eroare la stergerea proiectului");
@@ -132,7 +134,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         return remaining;
       });
     },
-    [],
+    [authFetch],
   );
 
   // Load projects on mount

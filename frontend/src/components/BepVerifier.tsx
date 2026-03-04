@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { BepContext } from "../App";
 import { useProject } from "../contexts/ProjectProvider";
+import { useAuth } from "../contexts/AuthProvider";
 
 interface Props {
   bepContext?: BepContext | null;
@@ -70,6 +71,7 @@ const FORMAT_OPTIONS: { value: string; label: string }[] = [
 
 export default function BepVerifier({ bepContext, projectId }: Props) {
   const { loadProjects } = useProject();
+  const { authFetch } = useAuth();
   const [source, setSource] = useState("revit");
   const [disciplines, setDisciplines] = useState<string[]>([]);
   const [formats, setFormats] = useState<string[]>([]);
@@ -96,7 +98,7 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
     }
     setHistoryLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/verification-history`);
+      const res = await authFetch(`/api/projects/${projectId}/verification-history`);
       if (res.ok) {
         const data: VerificationHistoryItem[] = await res.json();
         setHistory(data);
@@ -145,7 +147,7 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`/api/projects/${projectId}/import-ifc`, {
+      const res = await authFetch(`/api/projects/${projectId}/import-ifc`, {
         method: "POST",
         body: formData,
       });
@@ -212,7 +214,7 @@ export default function BepVerifier({ bepContext, projectId }: Props) {
     };
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/verify-bep-model`, {
+      const res = await authFetch(`/api/projects/${projectId}/verify-bep-model`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(modelSummary),

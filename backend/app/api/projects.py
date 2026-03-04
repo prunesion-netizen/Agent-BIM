@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.schemas.project import (
     ProjectCreate, ProjectUpdate, ProjectRead,
     ProjectDetailRead,
@@ -29,7 +31,7 @@ router = APIRouter()
 
 
 @router.post("/projects", response_model=ProjectRead, status_code=201)
-def api_create_project(data: ProjectCreate, db: Session = Depends(get_db)):
+def api_create_project(data: ProjectCreate, db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user)):
     """Creează un proiect BIM nou."""
     project = create_project(db, data)
     return project_model_to_read(project)
@@ -37,7 +39,7 @@ def api_create_project(data: ProjectCreate, db: Session = Depends(get_db)):
 
 @router.patch("/projects/{project_id}", response_model=ProjectRead)
 def api_update_project(
-    project_id: int, data: ProjectUpdate, db: Session = Depends(get_db)
+    project_id: int, data: ProjectUpdate, db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user),
 ):
     """Actualizează parțial un proiect (nume, client, tip, descriere)."""
     project = update_project(db, project_id, data)
@@ -47,7 +49,7 @@ def api_update_project(
 
 
 @router.delete("/projects/{project_id}", status_code=204)
-def api_delete_project(project_id: int, db: Session = Depends(get_db)):
+def api_delete_project(project_id: int, db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user)):
     """Sterge un proiect si toate datele asociate (CASCADE)."""
     if not delete_project(db, project_id):
         raise HTTPException(status_code=404, detail=f"Proiectul {project_id} nu exista.")
@@ -55,13 +57,13 @@ def api_delete_project(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/projects", response_model=list[ProjectRead])
-def api_list_projects(db: Session = Depends(get_db)):
+def api_list_projects(db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user)):
     """Returnează lista tuturor proiectelor."""
     return [project_model_to_read(p) for p in list_projects(db)]
 
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailRead)
-def api_get_project(project_id: int, db: Session = Depends(get_db)):
+def api_get_project(project_id: int, db: Session = Depends(get_db), _user: UserModel = Depends(get_current_user)):
     """
     Returnează detalii complete despre un proiect:
     - datele proiectului

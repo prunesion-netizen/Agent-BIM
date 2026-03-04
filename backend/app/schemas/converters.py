@@ -13,18 +13,33 @@ from app.models.sql_models import (
     GeneratedDocumentModel,
     ProjectContextModel,
     ProjectModel,
+    UserModel,
 )
 from app.schemas.agent import (
     ConversationDetailRead,
     ConversationRead,
     MessageRead,
 )
+from app.schemas.auth import UserRead
 from app.schemas.project import (
     GeneratedDocumentRead,
     ProjectContextRead,
     ProjectRead,
     VerificationHistoryItem,
 )
+
+
+def user_model_to_read(u: UserModel) -> UserRead:
+    """Convertește un UserModel SQLAlchemy în UserRead Pydantic."""
+    return UserRead(
+        id=u.id,
+        email=u.email,
+        username=u.username,
+        role=u.role,
+        is_active=u.is_active,
+        created_at=u.created_at.isoformat() if u.created_at else "",
+        updated_at=u.updated_at.isoformat() if u.updated_at else "",
+    )
 
 
 def project_model_to_read(p: ProjectModel) -> ProjectRead:
@@ -64,6 +79,8 @@ def document_model_to_read(d: GeneratedDocumentModel) -> GeneratedDocumentRead:
         summary_status=d.summary_status,
         fail_count=d.fail_count,
         warning_count=d.warning_count,
+        cde_state=d.cde_state,
+        approval_status=d.approval_status,
         created_at=d.created_at.isoformat() if d.created_at else "",
     )
 

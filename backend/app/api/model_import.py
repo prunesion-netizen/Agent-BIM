@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.models.sql_models import UserModel
+from app.services.auth import get_current_user
 from app.repositories.projects_repository import (
     get_latest_uploaded_file,
     get_project,
@@ -38,6 +40,7 @@ async def api_import_ifc(
     project_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ) -> ModelSummary:
     """Primește un fișier .ifc, parsează conținutul, persistă și returnează ModelSummary."""
 
@@ -88,6 +91,7 @@ async def api_import_ifc(
 def api_get_ifc_file(
     project_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Returnează fișierul IFC binar al proiectului (cel mai recent upload)."""
     project = get_project(db, project_id)
@@ -116,6 +120,7 @@ def api_get_ifc_file(
 def api_get_ifc_info(
     project_id: int,
     db: Session = Depends(get_db),
+    _user: UserModel = Depends(get_current_user),
 ):
     """Returnează metadata JSON despre cel mai recent fișier IFC uploadat."""
     project = get_project(db, project_id)

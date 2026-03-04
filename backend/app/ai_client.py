@@ -185,7 +185,7 @@ def call_llm(project_context: dict) -> str:
         raise RuntimeError(f"Eroare generare BEP: {e}") from e
 
 
-def call_llm_chat_expert(context: str, question: str) -> str:
+def call_llm_chat_expert(context: str, question: str, *, max_tokens: int = 2048) -> str:
     """
     Apelează Claude pentru Chat Expert BIM.
     Primește context (BEP + standarde) și întrebarea utilizatorului.
@@ -203,7 +203,7 @@ def call_llm_chat_expert(context: str, question: str) -> str:
     try:
         response = client.messages.create(
             model=MODEL,
-            max_tokens=2048,
+            max_tokens=max_tokens,
             system=system_with_context,
             messages=[{"role": "user", "content": question}],
         )

@@ -1,3 +1,14 @@
+/** Cerință informațională OIR / AIR / PIR (ISO 19650-1) */
+export interface InformationRequirement {
+  id: string;
+  category: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  success_criteria?: string;
+  related_assets: string[];
+  related_deliverables: string[];
+}
+
 /** Rol în echipa BIM */
 export interface BimTeamRole {
   role_name: string;
@@ -155,6 +166,11 @@ export interface ProjectContext {
   clash_detection_tool: ClashTool;
   clash_tolerance_critical_dde?: string;
   bim_kpis: string;
+
+  // ── OIR / AIR / PIR (ISO 19650-1)
+  oir_requirements: InformationRequirement[];
+  air_requirements: InformationRequirement[];
+  pir_requirements: InformationRequirement[];
 }
 
 /** Valori default pentru un ProjectContext nou */
@@ -228,5 +244,8 @@ export function createDefaultProjectContext(): ProjectContext {
     clash_detection_tool: "navisworks",
     clash_tolerance_critical_dde: "0 clash-uri hard la emiterea DDE",
     bim_kpis: "Nr. clash-uri hard nerezolvate: 0\n% modele la termen: >= 90%\nTimp remediere clash critic: <= 3 zile",
+    oir_requirements: [],
+    air_requirements: [],
+    pir_requirements: [],
   };
 }

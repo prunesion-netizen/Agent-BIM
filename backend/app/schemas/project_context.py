@@ -9,6 +9,17 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class InformationRequirement(BaseModel):
+    """Cerință informațională (OIR / AIR / PIR) conform ISO 19650-1."""
+    id: str = Field(..., description="Cod unic, ex: OIR-01, PIR-03, AIR-07")
+    category: str = Field(..., description="Categorie: Strategie, Siguranță, FM, Legal, Calitate, Sustenabilitate")
+    description: str = Field(..., description="Descriere clară a cerinței")
+    priority: Literal["low", "medium", "high"] = "medium"
+    success_criteria: str | None = Field(None, description="Cum se verifică îndeplinirea")
+    related_assets: list[str] = Field(default_factory=list, description="Echipamente/sisteme relevante (pt AIR)")
+    related_deliverables: list[str] = Field(default_factory=list, description="Coduri livrabile BIM: BIM-LIV-03, COBie")
+
+
 class BimTeamRole(BaseModel):
     """Rol în echipa BIM."""
     role_name: str = Field(..., description="Numele rolului (ex: BIM Manager)")
@@ -120,3 +131,17 @@ class ProjectContext(BaseModel):
     ] = "navisworks"
     clash_tolerance_critical_dde: str | None = None
     bim_kpis: list[str] = Field(default_factory=list)
+
+    # ── OIR / AIR / PIR (ISO 19650-1 cascadă) ───────────────────────────
+    oir_requirements: list[InformationRequirement] = Field(
+        default_factory=list,
+        description="Organizational Information Requirements — cerințe strategice ale organizației beneficiar",
+    )
+    air_requirements: list[InformationRequirement] = Field(
+        default_factory=list,
+        description="Asset Information Requirements — cerințe per asset/echipament, lifecycle, FM",
+    )
+    pir_requirements: list[InformationRequirement] = Field(
+        default_factory=list,
+        description="Project Information Requirements — cerințe specifice proiectului, faze, decizii",
+    )
