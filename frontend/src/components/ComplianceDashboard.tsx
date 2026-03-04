@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type ComplianceCheck = {
   check: string;
@@ -58,6 +59,8 @@ export default function ComplianceDashboard() {
   const { currentProject } = useProject();
   const [data, setData] = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const toast = useToast();
 
   const projectId = currentProject?.id;
 
@@ -75,6 +78,31 @@ export default function ComplianceDashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!projectId) return;
+    setExporting(true);
+    try {
+      const res = await authFetch(`/api/projects/${projectId}/export-compliance-pdf`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        toast.error(err.detail || "Eroare la export PDF.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ISO19650_Raport_${currentProject?.code || projectId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Raport PDF descarcat!");
+    } catch {
+      toast.error("Eroare de retea la export PDF.");
+    } finally {
+      setExporting(false);
+    }
+  }, [authFetch, projectId, currentProject?.code]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!projectId) {
     return (
@@ -110,9 +138,18 @@ export default function ComplianceDashboard() {
             <p className="demo-subtitle">Verificare completa parts 1/2/3/5</p>
           </div>
         </div>
-        <button className="btn-outline btn-loading" onClick={loadData}>
-          &#8635; Reverifica
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn-outline btn-loading" onClick={loadData}>
+            &#8635; Reverifica
+          </button>
+          <button
+            className="bep-export-btn"
+            onClick={handleExportPdf}
+            disabled={exporting || !data}
+          >
+            {exporting ? "Se exporta..." : "Export PDF"}
+          </button>
+        </div>
       </header>
 
       {/* Overall score */}
