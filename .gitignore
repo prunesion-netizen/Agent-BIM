@@ -40,5 +40,20 @@ frontend/node_modules/
 frontend/dist/
 frontend/*.png
 
+# SQLite databases
+*.db
+backend/data/*.db
+
+# Upload files (user data)
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
+# IFC test files
+backend/data/*.ifc
+
+# Generated DOCX/XLSX at root
+BEP_*.docx
+backend/cobie_template_test.xlsx
+
 # Claude Code
 .claude/
