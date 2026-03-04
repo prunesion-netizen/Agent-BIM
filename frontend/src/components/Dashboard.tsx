@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+} from "recharts";
 import StatusBadge from "./StatusBadge";
 import { useAuth } from "../contexts/AuthProvider";
 
@@ -183,6 +187,38 @@ export default function Dashboard({ onSelectProject }: Props) {
     fill: STATUS_COLORS[status] || "#9ca3af",
   }));
 
+  // Health score per project (bar chart) — top 10 by name length for readability
+  const healthBarData = [...items]
+    .sort((a, b) => b.health_score - a.health_score)
+    .slice(0, 12)
+    .map((p) => ({
+      name: p.code || p.name.slice(0, 12),
+      score: p.health_score,
+      fill: p.health_score >= 80 ? "#16a34a" : p.health_score >= 50 ? "#f59e0b" : "#ef4444",
+    }));
+
+  // ISO 19650 module adoption (radar) — % of projects that have each module
+  const isoRadarData = total > 0
+    ? [
+        { module: "BEP", pct: Math.round((withBep / total) * 100) },
+        { module: "Verificare", pct: Math.round((items.filter((p) => p.has_verifications).length / total) * 100) },
+        { module: "EIR", pct: Math.round((items.filter((p) => p.has_eir).length / total) * 100) },
+        { module: "RACI", pct: Math.round((items.filter((p) => p.has_raci).length / total) * 100) },
+        { module: "Securitate", pct: Math.round((items.filter((p) => p.has_security_plan).length / total) * 100) },
+        { module: "IFC", pct: Math.round((items.filter((p) => p.has_ifc).length / total) * 100) },
+      ]
+    : [];
+
+  // TIDP completion per project (only projects with tidp > 0)
+  const tidpBarData = items
+    .filter((p) => (p.tidp_completion ?? 0) > 0)
+    .sort((a, b) => (b.tidp_completion ?? 0) - (a.tidp_completion ?? 0))
+    .slice(0, 12)
+    .map((p) => ({
+      name: p.code || p.name.slice(0, 12),
+      completion: Math.round((p.tidp_completion ?? 0) * 100),
+    }));
+
   return (
     <div className="demo-container">
       <header className="demo-header">
@@ -227,7 +263,7 @@ export default function Dashboard({ onSelectProject }: Props) {
         </div>
       </div>
 
-      {/* Status distribution chart */}
+      {/* Charts row 1: Status donut + Health bar */}
       {items.length > 0 && (
         <div className="dashboard-charts-row">
           <div className="dashboard-chart-card">
@@ -253,6 +289,73 @@ export default function Dashboard({ onSelectProject }: Props) {
               </PieChart>
             </ResponsiveContainer>
           </div>
+
+          {healthBarData.length > 0 && (
+            <div className="dashboard-chart-card">
+              <h3 className="dashboard-chart-title">Scor Sanatate per Proiect</h3>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={healthBarData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value: number) => [`${value}%`, "Sanatate"]} />
+                  <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                    {healthBarData.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Charts row 2: ISO Radar + TIDP Completion */}
+      {items.length > 0 && (isoRadarData.length > 0 || tidpBarData.length > 0) && (
+        <div className="dashboard-charts-row">
+          {isoRadarData.length > 0 && (
+            <div className="dashboard-chart-card">
+              <h3 className="dashboard-chart-title">Adoptie Module ISO 19650</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <RadarChart data={isoRadarData} cx="50%" cy="50%" outerRadius="70%">
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="module" tick={{ fontSize: 12 }} />
+                  <PolarRadiusAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <Radar
+                    name="Adoptie"
+                    dataKey="pct"
+                    stroke="#2563eb"
+                    fill="#2563eb"
+                    fillOpacity={0.3}
+                  />
+                  <Tooltip formatter={(value: number) => [`${value}%`, "Proiecte"]} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {tidpBarData.length > 0 && (
+            <div className="dashboard-chart-card">
+              <h3 className="dashboard-chart-title">Progres Livrabile (TIDP)</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tidpBarData} margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip formatter={(value: number) => [`${value}%`, "Completare TIDP"]} />
+                  <Bar dataKey="completion" fill="#8b5cf6" radius={[4, 4, 0, 0]}>
+                    {tidpBarData.map((entry, idx) => (
+                      <Cell
+                        key={idx}
+                        fill={entry.completion >= 80 ? "#16a34a" : entry.completion >= 40 ? "#f59e0b" : "#ef4444"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 
