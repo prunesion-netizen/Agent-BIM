@@ -77,11 +77,22 @@ export default function ComplianceDashboard() {
   }, [loadData]);
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9989;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   if (loading) {
-    return <p style={{ padding: 40, textAlign: "center", color: "var(--gray-500)" }}>Se verifica conformitatea...</p>;
+    return (
+      <div className="loading-center" style={{ minHeight: 200 }}>
+        <div className="spinner spinner-dark spinner-lg" />
+        <span>Se verifica conformitatea...</span>
+      </div>
+    );
   }
 
   if (!data) return null;
@@ -99,7 +110,7 @@ export default function ComplianceDashboard() {
             <p className="demo-subtitle">Verificare completa parts 1/2/3/5</p>
           </div>
         </div>
-        <button className="btn-outline" onClick={loadData}>
+        <button className="btn-outline btn-loading" onClick={loadData}>
           &#8635; Reverifica
         </button>
       </header>

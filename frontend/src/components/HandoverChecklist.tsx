@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type HandoverItem = {
   id: number;
@@ -35,6 +36,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function HandoverChecklist() {
   const { authFetch } = useAuth();
   const { currentProject } = useProject();
+  const toast = useToast();
   const [data, setData] = useState<HandoverData | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -76,28 +78,42 @@ export default function HandoverChecklist() {
         const result = await res.json();
         if (result.error) {
           setError(result.error);
+          toast.error("Eroare la generarea checklist-ului.");
         } else {
+          toast.success(`Checklist generat: ${result.items_count} itemi!`);
           await loadData();
         }
       } else {
         setError(`Eroare HTTP ${res.status}`);
+        toast.error(`Eroare HTTP ${res.status}`);
       }
     } catch (e: any) {
       setError(e.message || "Eroare necunoscuta");
+      toast.error("Eroare de retea.");
     } finally {
       setGenerating(false);
     }
   };
 
   const handleToggle = async (itemId: number) => {
-    const res = await authFetch(`/api/handover-items/${itemId}/toggle`, {
-      method: "POST",
-    });
-    if (res.ok) await loadData();
+    try {
+      const res = await authFetch(`/api/handover-items/${itemId}/toggle`, {
+        method: "POST",
+      });
+      if (res.ok) await loadData();
+    } catch {
+      toast.error("Eroare la actualizarea itemului.");
+    }
   };
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9745;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   // Group items by category
@@ -118,21 +134,28 @@ export default function HandoverChecklist() {
           </div>
         </div>
         <button
-          className="btn-primary"
+          className="btn-primary btn-loading"
           onClick={handleGenerate}
           disabled={generating}
         >
+          {generating && <span className="spinner" />}
           {generating ? "Se genereaza..." : "Genereaza Checklist"}
         </button>
       </header>
 
       {error && (
-        <div style={{ margin: "16px 0", padding: "12px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, color: "#dc2626" }}>
+        <div className="alert alert-error">
           <strong>Eroare:</strong> {error}
+          <button className="alert-dismiss" onClick={() => setError(null)} aria-label="Inchide eroarea">&times;</button>
         </div>
       )}
 
-      {loading && <p style={{ textAlign: "center", color: "var(--gray-500)" }}>Se incarca...</p>}
+      {loading && (
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>Se incarca checklist...</span>
+        </div>
+      )}
 
       {data && data.total_items > 0 && (
         <>
@@ -180,9 +203,11 @@ export default function HandoverChecklist() {
       )}
 
       {data && data.total_items === 0 && (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
-          Nu exista checklist. Apasa "Genereaza Checklist" pentru a crea lista de predare.
-        </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#128203;</div>
+          <div className="empty-state-title">Nu exista checklist</div>
+          <div className="empty-state-text">Apasa "Genereaza Checklist" pentru a crea lista de predare as-built.</div>
+        </div>
       )}
     </div>
   );

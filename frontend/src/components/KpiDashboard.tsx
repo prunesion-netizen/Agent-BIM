@@ -61,11 +61,22 @@ export default function KpiDashboard() {
   }, [loadData]);
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9733;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   if (loading) {
-    return <p style={{ padding: 40, textAlign: "center", color: "var(--gray-500)" }}>Se calculeaza KPI...</p>;
+    return (
+      <div className="loading-center" style={{ minHeight: 200 }}>
+        <div className="spinner spinner-dark spinner-lg" />
+        <span>Se calculeaza KPI...</span>
+      </div>
+    );
   }
 
   if (!data) return null;
@@ -86,7 +97,7 @@ export default function KpiDashboard() {
             <p className="demo-subtitle">Indicatori cheie performanta BIM</p>
           </div>
         </div>
-        <button className="btn-outline" onClick={loadData}>
+        <button className="btn-outline btn-loading" onClick={loadData}>
           &#8635; Recalculeaza
         </button>
       </header>

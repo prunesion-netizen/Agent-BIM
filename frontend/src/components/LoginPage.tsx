@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../contexts/AuthProvider";
+import { useToast } from "./Toast";
 
 export default function LoginPage() {
   const { login, register } = useAuth();
+  const toast = useToast();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -21,7 +23,9 @@ export default function LoginPage() {
         await login(email, password);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Eroare necunoscuta");
+      const msg = err instanceof Error ? err.message : "Eroare necunoscuta";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -96,9 +100,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="login-submit"
+            className="login-submit btn-loading"
             disabled={loading}
           >
+            {loading && <span className="spinner" />}
             {loading
               ? "Se proceseaza..."
               : isRegister

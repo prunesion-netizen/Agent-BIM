@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type EirData = {
   id: number;
@@ -28,6 +29,7 @@ type EirData = {
 export default function EirPanel() {
   const { authFetch } = useAuth();
   const { currentProject } = useProject();
+  const toast = useToast();
   const [eir, setEir] = useState<EirData | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -70,21 +72,31 @@ export default function EirPanel() {
         const data = await res.json();
         if (data.error) {
           setError(data.error);
+          toast.error("Eroare la generarea EIR.");
         } else {
+          toast.success("EIR generat cu succes!");
           await loadData();
         }
       } else {
         setError(`Eroare HTTP ${res.status}`);
+        toast.error(`Eroare HTTP ${res.status}`);
       }
     } catch (e: any) {
       setError(e.message || "Eroare necunoscuta");
+      toast.error("Eroare de retea la generarea EIR.");
     } finally {
       setGenerating(false);
     }
   };
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9888;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus pentru a vedea EIR.</div>
+      </div>
+    );
   }
 
   const PRIORITY_COLORS: Record<string, string> = {
@@ -106,33 +118,40 @@ export default function EirPanel() {
           </div>
         </div>
         <button
-          className="btn-primary"
+          className="btn-primary btn-loading"
           onClick={handleGenerate}
           disabled={generating}
         >
+          {generating && <span className="spinner" />}
           {generating ? "Se genereaza..." : "Genereaza EIR"}
         </button>
       </header>
 
       {error && (
-        <div style={{ margin: "16px 0", padding: "12px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, color: "#dc2626" }}>
+        <div className="alert alert-error">
           <strong>Eroare:</strong> {error}
+          <button className="alert-dismiss" onClick={() => setError(null)} aria-label="Inchide eroarea">&times;</button>
         </div>
       )}
 
-      {loading && <p style={{ textAlign: "center", color: "var(--gray-500)" }}>Se incarca...</p>}
+      {loading && (
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>Se incarca EIR...</span>
+        </div>
+      )}
 
       {eir && requirements.length > 0 && (
-        <div className="dashboard-table-wrap">
+        <div className="table-responsive">
           <table className="dashboard-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Categorie</th>
-                <th>Cerinta</th>
-                <th>Prioritate</th>
-                <th>Criteriu Acceptare</th>
-                <th>Disciplina</th>
+                <th scope="col">#</th>
+                <th scope="col">Categorie</th>
+                <th scope="col">Cerinta</th>
+                <th scope="col">Prioritate</th>
+                <th scope="col">Criteriu Acceptare</th>
+                <th scope="col">Disciplina</th>
               </tr>
             </thead>
             <tbody>
@@ -162,9 +181,11 @@ export default function EirPanel() {
       )}
 
       {!eir && !loading && (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
-          Nu exista EIR generat. Apasa "Genereaza EIR" pentru a crea cerintele de informare.
-        </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#128196;</div>
+          <div className="empty-state-title">Nu exista EIR generat</div>
+          <div className="empty-state-text">Apasa "Genereaza EIR" pentru a crea cerintele de informare conform ISO 19650-2.</div>
+        </div>
       )}
     </div>
   );

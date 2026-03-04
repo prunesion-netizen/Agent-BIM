@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type ClashRecord = {
   id: number;
@@ -37,6 +38,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 export default function ClashManager() {
   const { authFetch } = useAuth();
   const { currentProject } = useProject();
+  const toast = useToast();
   const [data, setData] = useState<ClashData | null>(null);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -59,16 +61,31 @@ export default function ClashManager() {
   }, [loadData]);
 
   const handleResolve = async (clashId: number) => {
-    const res = await authFetch(`/api/clashes/${clashId}/resolve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resolution_note: "Rezolvat" }),
-    });
-    if (res.ok) await loadData();
+    try {
+      const res = await authFetch(`/api/clashes/${clashId}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolution_note: "Rezolvat" }),
+      });
+      if (res.ok) {
+        toast.success("Clash rezolvat!");
+        await loadData();
+      } else {
+        toast.error("Eroare la rezolvarea clash-ului.");
+      }
+    } catch {
+      toast.error("Eroare de retea.");
+    }
   };
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9888;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   const filtered = data?.clashes.filter(
@@ -87,7 +104,12 @@ export default function ClashManager() {
         </div>
       </header>
 
-      {loading && <p style={{ textAlign: "center", color: "var(--gray-500)" }}>Se incarca...</p>}
+      {loading && (
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>Se incarca clash-urile...</span>
+        </div>
+      )}
 
       {data && (
         <>
@@ -113,6 +135,7 @@ export default function ClashManager() {
               className="dashboard-filter-select"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
+              aria-label="Filtreaza dupa status"
             >
               <option value="all">Toate</option>
               <option value="open">Deschise</option>
@@ -121,16 +144,16 @@ export default function ClashManager() {
           </div>
 
           {filtered.length > 0 && (
-            <div className="dashboard-table-wrap">
+            <div className="table-responsive">
               <table className="dashboard-table">
                 <thead>
                   <tr>
-                    <th>Discipline</th>
-                    <th>Severitate</th>
-                    <th>Descriere</th>
-                    <th>Status</th>
-                    <th>Asignat</th>
-                    <th>Actiuni</th>
+                    <th scope="col">Discipline</th>
+                    <th scope="col">Severitate</th>
+                    <th scope="col">Descriere</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Asignat</th>
+                    <th scope="col">Actiuni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -164,9 +187,11 @@ export default function ClashManager() {
           )}
 
           {data.total === 0 && (
-            <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
-              Nu exista clash-uri inregistrate.
-            </p>
+            <div className="empty-state">
+              <div className="empty-state-icon">&#9989;</div>
+              <div className="empty-state-title">Fara clash-uri</div>
+              <div className="empty-state-text">Nu exista clash-uri inregistrate pentru acest proiect.</div>
+            </div>
           )}
         </>
       )}

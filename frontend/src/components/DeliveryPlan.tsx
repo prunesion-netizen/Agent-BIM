@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type Deliverable = {
   id: number;
@@ -30,6 +31,7 @@ type DeliveryPlanData = {
 export default function DeliveryPlan() {
   const { authFetch } = useAuth();
   const { currentProject } = useProject();
+  const toast = useToast();
   const [data, setData] = useState<DeliveryPlanData | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -71,21 +73,31 @@ export default function DeliveryPlan() {
         const result = await res.json();
         if (result.error) {
           setError(result.error);
+          toast.error("Eroare la generarea TIDP.");
         } else {
+          toast.success(`TIDP generat: ${result.deliverables_count} livrabile!`);
           await loadData();
         }
       } else {
         setError(`Eroare HTTP ${res.status}`);
+        toast.error(`Eroare HTTP ${res.status}`);
       }
     } catch (e: any) {
       setError(e.message || "Eroare necunoscuta");
+      toast.error("Eroare de retea la generarea TIDP.");
     } finally {
       setGenerating(false);
     }
   };
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9998;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   const STATUS_COLORS: Record<string, string> = {
@@ -106,21 +118,28 @@ export default function DeliveryPlan() {
           </div>
         </div>
         <button
-          className="btn-primary"
+          className="btn-primary btn-loading"
           onClick={handleGenerate}
           disabled={generating}
         >
+          {generating && <span className="spinner" />}
           {generating ? "Se genereaza..." : "Genereaza TIDP"}
         </button>
       </header>
 
       {error && (
-        <div style={{ margin: "16px 0", padding: "12px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, color: "#dc2626" }}>
+        <div className="alert alert-error">
           <strong>Eroare:</strong> {error}
+          <button className="alert-dismiss" onClick={() => setError(null)} aria-label="Inchide eroarea">&times;</button>
         </div>
       )}
 
-      {loading && <p style={{ textAlign: "center", color: "var(--gray-500)" }}>Se incarca...</p>}
+      {loading && (
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>Se incarca planul de livrare...</span>
+        </div>
+      )}
 
       {data && data.total_deliverables > 0 && (
         <>
@@ -142,18 +161,18 @@ export default function DeliveryPlan() {
           </div>
 
           {/* Table */}
-          <div className="dashboard-table-wrap">
+          <div className="table-responsive">
             <table className="dashboard-table">
               <thead>
                 <tr>
-                  <th>Livrabil</th>
-                  <th>Disciplina</th>
-                  <th>Format</th>
-                  <th>LOD</th>
-                  <th>Responsabil</th>
-                  <th>Deadline</th>
-                  <th>Faza</th>
-                  <th>Status</th>
+                  <th scope="col">Livrabil</th>
+                  <th scope="col">Disciplina</th>
+                  <th scope="col">Format</th>
+                  <th scope="col">LOD</th>
+                  <th scope="col">Responsabil</th>
+                  <th scope="col">Deadline</th>
+                  <th scope="col">Faza</th>
+                  <th scope="col">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,9 +205,11 @@ export default function DeliveryPlan() {
       )}
 
       {data && data.total_deliverables === 0 && (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
-          Nu exista livrabile. Apasa "Genereaza TIDP" pentru a crea planul de livrare.
-        </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#128203;</div>
+          <div className="empty-state-title">Nu exista livrabile</div>
+          <div className="empty-state-text">Apasa "Genereaza TIDP" pentru a crea planul de livrare.</div>
+        </div>
       )}
     </div>
   );

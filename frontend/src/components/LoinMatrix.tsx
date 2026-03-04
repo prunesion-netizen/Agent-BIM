@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type LoinEntry = {
   id: number;
@@ -27,6 +28,7 @@ type LoinData = {
 export default function LoinMatrix() {
   const { authFetch } = useAuth();
   const { currentProject } = useProject();
+  const toast = useToast();
   const [data, setData] = useState<LoinData | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -68,21 +70,31 @@ export default function LoinMatrix() {
         const result = await res.json();
         if (result.error) {
           setError(result.error);
+          toast.error("Eroare la generarea LOIN.");
         } else {
+          toast.success(`LOIN generat: ${result.entries_count} intrari!`);
           await loadData();
         }
       } else {
         setError(`Eroare HTTP ${res.status}`);
+        toast.error(`Eroare HTTP ${res.status}`);
       }
     } catch (e: any) {
       setError(e.message || "Eroare necunoscuta");
+      toast.error("Eroare de retea la generarea LOIN.");
     } finally {
       setGenerating(false);
     }
   };
 
   if (!projectId) {
-    return <p style={{ padding: 20, color: "var(--gray-500)" }}>Selecteaza un proiect.</p>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9878;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect din bara de sus.</div>
+      </div>
+    );
   }
 
   return (
@@ -96,33 +108,40 @@ export default function LoinMatrix() {
           </div>
         </div>
         <button
-          className="btn-primary"
+          className="btn-primary btn-loading"
           onClick={handleGenerate}
           disabled={generating}
         >
+          {generating && <span className="spinner" />}
           {generating ? "Se genereaza..." : "Genereaza LOIN"}
         </button>
       </header>
 
       {error && (
-        <div style={{ margin: "16px 0", padding: "12px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, color: "#dc2626" }}>
+        <div className="alert alert-error">
           <strong>Eroare:</strong> {error}
+          <button className="alert-dismiss" onClick={() => setError(null)} aria-label="Inchide eroarea">&times;</button>
         </div>
       )}
 
-      {loading && <p style={{ textAlign: "center", color: "var(--gray-500)" }}>Se incarca...</p>}
+      {loading && (
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>Se incarca LOIN...</span>
+        </div>
+      )}
 
       {data && data.entries.length > 0 && (
-        <div className="dashboard-table-wrap">
+        <div className="table-responsive">
           <table className="dashboard-table">
             <thead>
               <tr>
-                <th>Element IFC</th>
-                <th>Disciplina</th>
-                <th>Faza</th>
-                <th>LOD</th>
-                <th>Dim.</th>
-                <th>Continut Informational</th>
+                <th scope="col">Element IFC</th>
+                <th scope="col">Disciplina</th>
+                <th scope="col">Faza</th>
+                <th scope="col">LOD</th>
+                <th scope="col">Dim.</th>
+                <th scope="col">Continut Informational</th>
               </tr>
             </thead>
             <tbody>
@@ -146,9 +165,11 @@ export default function LoinMatrix() {
       )}
 
       {data && data.total_entries === 0 && (
-        <p style={{ textAlign: "center", marginTop: 32, color: "var(--gray-500)" }}>
-          Nu exista LOIN definit. Apasa "Genereaza LOIN" pentru a crea matricea.
-        </p>
+        <div className="empty-state">
+          <div className="empty-state-icon">&#128208;</div>
+          <div className="empty-state-title">Nu exista LOIN definit</div>
+          <div className="empty-state-text">Apasa "Genereaza LOIN" pentru a crea matricea de nivel informational.</div>
+        </div>
       )}
     </div>
   );

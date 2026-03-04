@@ -1,6 +1,7 @@
 import { useState, useCallback, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthProvider";
 import { ProjectProvider, useProject } from "./contexts/ProjectProvider";
+import { ToastProvider } from "./components/Toast";
 import LoginPage from "./components/LoginPage";
 import ProjectSelector from "./components/ProjectSelector";
 import Dashboard from "./components/Dashboard";
@@ -201,7 +202,7 @@ function AppContent() {
           </>
         )}
         {tab === "viewer" && (
-          <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Se incarca Viewer 3D...</div>}>
+          <Suspense fallback={<div className="loading-center"><div className="spinner spinner-dark spinner-lg" /><span>Se incarca Viewer 3D...</span></div>}>
             <IfcViewer projectId={currentProject?.id ?? null} />
           </Suspense>
         )}
@@ -215,8 +216,9 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <p>Se incarca...</p>
+      <div className="loading-center" style={{ minHeight: "100vh" }}>
+        <div className="spinner spinner-dark spinner-lg" />
+        <span>Se incarca...</span>
       </div>
     );
   }
@@ -234,9 +236,11 @@ function AuthGate() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 
