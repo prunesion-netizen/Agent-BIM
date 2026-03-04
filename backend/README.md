@@ -1,44 +1,46 @@
 # Agent BIM Romania — Backend (FastAPI)
 
-Backend API pentru management BIM conform ISO 19650.
+Backend API for BIM management with ISO 19650 compliance.
 
-## Structura
+## Stack
+
+- **FastAPI** + Uvicorn
+- **SQLAlchemy** ORM (SQLite dev / PostgreSQL prod)
+- **Alembic** migrations
+- **Claude API** (anthropic SDK) for AI features
+- **JWT** authentication (python-jose + bcrypt)
+
+## Structure
 
 ```
-backend/
-  app/
-    main.py              # FastAPI app, CORS, routere
-    ai_client.py         # Interfață Claude API (call_llm, call_llm_chat_expert)
-    api/
-      bep.py             # POST /api/generate-bep
-      chat.py            # POST /api/chat-expert
-    schemas/
-      project_context.py # ProjectContext, BimTeamRole, SoftwareItem (Pydantic)
-    services/
-      bep_generator.py   # Logica de generare BEP
-      chat_expert.py     # Logica Chat Expert BIM
-    models/              # (rezervat pentru ORM/DB)
-  requirements.txt
-  .env.example
+app/
+  main.py                 # FastAPI app, CORS, 20 routers
+  ai_client.py            # Claude API singleton
+  db.py                   # SQLAlchemy engine + session
+  api/                    # 20 API routers (57 routes)
+    auth.py               # JWT register/login/refresh/me
+    agent.py              # Autonomous agent with SSE
+    bep.py                # BEP generation + export
+    chat.py               # Chat Expert BIM
+    projects.py           # Project CRUD
+    compliance.py         # ISO 19650 compliance check
+    eir.py, raci.py, ...  # ISO 19650 modules
+  models/
+    sql_models.py         # 19 SQLAlchemy tables
+  schemas/                # Pydantic models
+  services/               # Business logic
+  repositories/           # Database CRUD
+alembic/                  # Migrations 001-007
 ```
 
-## Pornire server
+## Run
 
 ```bash
-cd backend
 pip install -r requirements.txt
-cp .env.example .env   # completează ANTHROPIC_API_KEY
-uvicorn app.main:app --reload --port 8000
+cp .env.example .env      # set ANTHROPIC_API_KEY + JWT_SECRET
+python -m uvicorn app.main:app --port 8000 --reload
 ```
 
-## Endpoints
+## API Docs
 
-| Metoda | Endpoint            | Descriere                          |
-|--------|--------------------|------------------------------------|
-| GET    | /healthcheck       | Status server                      |
-| POST   | /api/generate-bep  | Generează BEP din ProjectContext   |
-| POST   | /api/chat-expert   | Chat Expert BIM                    |
-
-## Documentație API
-
-Deschide http://localhost:8000/docs pentru Swagger UI.
+http://localhost:8000/docs (Swagger UI)
