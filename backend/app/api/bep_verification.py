@@ -120,6 +120,13 @@ def api_verify_bep_model(
     # 6) Actualizează status proiect
     on_bep_verified(db, project_id, checks)
 
+    # Notificare
+    try:
+        from app.services.notification_service import notify_verification_complete
+        notify_verification_complete(db, _user.id, project_id, project.name, summary_status or "unknown")
+    except Exception:
+        pass
+
     logger.info(f"Raport verificare salvat: document_id={doc.id}")
 
     # 7) Returnează rezultatul

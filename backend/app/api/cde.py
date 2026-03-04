@@ -36,6 +36,16 @@ def transition_state(
         reason=body.reason,
     )
     db.commit()
+
+    # Notificare CDE
+    try:
+        from app.services.notification_service import notify_cde_state_change
+        doc = db.query(GeneratedDocumentModel).get(document_id)
+        if doc:
+            notify_cde_state_change(db, user.id, doc.project_id, doc.title or f"Doc #{document_id}", body.target_state)
+    except Exception:
+        pass
+
     return {
         "success": True,
         "new_state": entry.state,

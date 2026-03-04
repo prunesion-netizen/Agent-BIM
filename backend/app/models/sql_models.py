@@ -509,3 +509,28 @@ class CobieValidationModel(Base):
     __table_args__ = (
         Index("ix_cobie_validations_project", "project_id"),
     )
+
+
+class NotificationModel(Base):
+    """Notificari in-app pentru utilizatori."""
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    project_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    category: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="info"
+    )  # "cde_change" | "deadline" | "clash" | "verification" | "bep" | "info"
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped[UserModel] = relationship()
+    project: Mapped[Optional[ProjectModel]] = relationship()

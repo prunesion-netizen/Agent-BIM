@@ -4,6 +4,7 @@ import { ProjectProvider, useProject } from "./contexts/ProjectProvider";
 import { ToastProvider } from "./components/Toast";
 import LoginPage from "./components/LoginPage";
 import ProjectSelector from "./components/ProjectSelector";
+import NotificationBell from "./components/NotificationBell";
 import Dashboard from "./components/Dashboard";
 import ProjectContextFormDemo from "./components/ProjectContextFormDemo";
 import ChatExpert from "./components/ChatExpert";
@@ -61,6 +62,7 @@ function AppContent() {
           <span className="app-topbar-brand">Agent BIM</span>
           <div className="app-topbar-right">
             <ProjectSelector />
+            <NotificationBell />
             <span className="user-badge">
               {user.username}
               <span className="user-badge-role">({user.role})</span>

@@ -94,6 +94,7 @@ from app.api import clashes  # noqa: E402
 from app.api import kpis  # noqa: E402
 from app.api import compliance  # noqa: E402
 from app.api import cobie  # noqa: E402
+from app.api import notifications  # noqa: E402
 
 app.include_router(auth.router, prefix="/api", tags=["Auth"])
 app.include_router(projects_dashboard.router, prefix="/api", tags=["Projects Dashboard"])
@@ -115,3 +116,4 @@ app.include_router(clashes.router, prefix="/api", tags=["Clash Management"])
 app.include_router(kpis.router, prefix="/api", tags=["KPI Tracking"])
 app.include_router(compliance.router, prefix="/api", tags=["ISO Compliance"])
 app.include_router(cobie.router, prefix="/api", tags=["COBie Validator"])
+app.include_router(notifications.router, prefix="/api", tags=["Notifications"])

@@ -86,6 +86,13 @@ def api_generate_bep_for_project(
         # Re-fetch project for updated status
         project = get_project(db, project_id)
 
+        # Notificare
+        try:
+            from app.services.notification_service import notify_bep_generated
+            notify_bep_generated(db, _user.id, project_id, project.name)
+        except Exception:
+            pass  # non-critical
+
         logger.info(
             f"BEP generat pentru proiectul {project_id} ({project.code}), "
             f"document_id={doc.id}"
