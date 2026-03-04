@@ -6,6 +6,7 @@ import StatusBadge from "./StatusBadge";
 import { createDefaultProjectContext, type ProjectContext } from "../types/projectContext";
 import { useProject } from "../contexts/ProjectProvider";
 import { useAuth } from "../contexts/AuthProvider";
+import { useToast } from "./Toast";
 import type { BepContext } from "../App";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: Props) {
   const { currentProject, loadProjects } = useProject();
   const { authFetch } = useAuth();
+  const toast = useToast();
   const [ctx, setCtx] = useState<ProjectContext>(createDefaultProjectContext);
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -180,6 +182,7 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       const bepMd = data.bep_document.content_markdown;
       setResult(bepMd);
       setSavedMsg(`BEP salvat pentru proiectul "${currentProject.name}" (doc #${data.bep_document.id})`);
+      toast.success(`BEP generat cu succes pentru "${currentProject.name}"!`);
       onBepGenerated?.({
         projectCode: currentProject.code,
         projectName: currentProject.name,
@@ -187,7 +190,9 @@ export default function ProjectContextFormDemo({ onBepGenerated, onGoToChat }: P
       });
       loadProjects();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Eroare necunoscuta");
+      const msg = e instanceof Error ? e.message : "Eroare necunoscuta";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

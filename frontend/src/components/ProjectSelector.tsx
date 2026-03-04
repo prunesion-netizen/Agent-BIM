@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
+import ConfirmDialog from "./ConfirmDialog";
 import StatusBadge from "./StatusBadge";
 import { getStatusInfo } from "../types/projectStatus";
 
@@ -18,7 +20,10 @@ function getTypeLabel(value: string | null): string {
 
 export default function ProjectSelector() {
   const { projects, currentProject, selectProject, createProject, updateProject, deleteProject, loading } = useProject();
+  const toast = useToast();
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
@@ -71,6 +76,36 @@ export default function ProjectSelector() {
       editRef.current.select();
     }
   }, [editingDesc]);
+
+  // Modal: Escape key + focus trap
+  const handleModalKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setShowModal(false);
+      return;
+    }
+    if (e.key === "Tab" && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showModal) {
+      document.addEventListener("keydown", handleModalKeyDown);
+      return () => document.removeEventListener("keydown", handleModalKeyDown);
+    }
+  }, [showModal, handleModalKeyDown]);
 
   function startEditName() {
     setEditName(currentProject?.name ?? "");
@@ -180,6 +215,7 @@ export default function ProjectSelector() {
         project_type: newType,
         description: newDescription.trim() || undefined,
       });
+      toast.success(`Proiect "${newName.trim()}" creat cu succes!`);
       setShowModal(false);
       setNewName("");
       setNewCode("");
@@ -226,20 +262,10 @@ export default function ProjectSelector() {
               </button>
               <button
                 className="desc-edit-btn btn-delete-project"
-                onClick={async () => {
-                  if (!currentProject) return;
-                  if (!window.confirm(`Sigur doriti sa stergeti proiectul "${currentProject.name}"?`)) return;
-                  setDeleting(true);
-                  try {
-                    await deleteProject(currentProject.id);
-                  } catch {
-                    // silently fail
-                  } finally {
-                    setDeleting(false);
-                  }
-                }}
+                onClick={() => setConfirmDelete(true)}
                 disabled={deleting}
                 title="Sterge proiectul"
+                aria-label="Sterge proiectul"
               >
                 {deleting ? "..." : "\u2716"}
               </button>
@@ -382,13 +408,36 @@ export default function ProjectSelector() {
         </div>
       )}
 
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Sterge proiectul"
+        message={`Sigur doriti sa stergeti proiectul "${currentProject?.name}"? Aceasta actiune este ireversibila.`}
+        confirmLabel="Sterge"
+        danger
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          if (!currentProject) return;
+          setConfirmDelete(false);
+          setDeleting(true);
+          try {
+            await deleteProject(currentProject.id);
+            toast.success("Proiect sters cu succes.");
+          } catch {
+            toast.error("Eroare la stergerea proiectului.");
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
+
       {/* Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-labelledby="new-project-title">
+          <div className="modal-content" ref={modalRef} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Proiect nou</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
+              <h3 id="new-project-title">Proiect nou</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)} aria-label="Inchide">
                 &times;
               </button>
             </div>

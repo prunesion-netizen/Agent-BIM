@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthProvider";
 import { useProject } from "../contexts/ProjectProvider";
+import { useToast } from "./Toast";
 
 type SheetCheck = {
   sheet_name: string;
@@ -68,6 +69,7 @@ export default function CobieValidator() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const projectId = currentProject?.id;
 
@@ -77,9 +79,9 @@ export default function CobieValidator() {
       const res = await authFetch(`/api/projects/${projectId}/cobie-validations`);
       if (res.ok) setHistory(await res.json());
     } catch {
-      /* ignore */
+      toast.error("Eroare la incarcarea istoricului COBie.");
     }
-  }, [authFetch, projectId]);
+  }, [authFetch, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadLatest = useCallback(async () => {
     if (!projectId) return;
@@ -126,13 +128,17 @@ export default function CobieValidator() {
         if (res.ok) {
           const data: ValidationResult = await res.json();
           setResult(data);
+          toast.success(`Validare COBie: ${data.score}% (${data.overall_status})`);
           loadHistory();
         } else {
           const err = await res.json().catch(() => null);
-          setError(err?.detail || "Eroare la validare.");
+          const msg = err?.detail || "Eroare la validare.";
+          setError(msg);
+          toast.error(msg);
         }
       } catch (err) {
-        setError("Eroare de rețea.");
+        setError("Eroare de retea.");
+        toast.error("Eroare de retea la validare COBie.");
       } finally {
         setUploading(false);
         e.target.value = "";
@@ -160,16 +166,19 @@ export default function CobieValidator() {
         a.download = `COBie_Template_${projectId}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
+        toast.success("Template COBie descarcat!");
       }
     } catch {
-      /* ignore */
+      toast.error("Eroare la descarcarea template-ului COBie.");
     }
   }, [authFetch, projectId]);
 
   if (!projectId) {
     return (
-      <div className="compliance-container">
-        <p>Selecteaza un proiect pentru validare COBie.</p>
+      <div className="empty-state">
+        <div className="empty-state-icon">&#128196;</div>
+        <div className="empty-state-title">Niciun proiect selectat</div>
+        <div className="empty-state-text">Selecteaza un proiect pentru validare COBie.</div>
       </div>
     );
   }
@@ -214,24 +223,17 @@ export default function CobieValidator() {
 
       {/* Error */}
       {error && (
-        <div
-          style={{
-            background: "#fef2f2",
-            border: "1px solid #fca5a5",
-            borderRadius: 8,
-            padding: "12px 16px",
-            color: "#991b1b",
-            marginBottom: 16,
-          }}
-        >
-          {error}
+        <div className="alert alert-error">
+          <strong>Eroare:</strong> {error}
+          <button className="alert-dismiss" onClick={() => setError(null)} aria-label="Inchide eroarea">&times;</button>
         </div>
       )}
 
       {/* Loading */}
       {(loading || uploading) && (
-        <div style={{ textAlign: "center", padding: 24, color: "#64748b" }}>
-          Se incarca...
+        <div className="loading-center">
+          <div className="spinner spinner-dark spinner-lg" />
+          <span>{uploading ? "Se valideaza fisierul..." : "Se incarca..."}</span>
         </div>
       )}
 

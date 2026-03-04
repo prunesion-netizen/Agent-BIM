@@ -4012,3 +4012,68 @@ button[disabled] {
     max-width: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Confirm Dialog
+   ══════════════════════════════════════════════════════════════════════ */
+
+.confirm-dialog {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: toast-slide-in .2s ease-out;
+}
+
+.confirm-title {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.confirm-message {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--gray-600);
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  border-color: #dc2626 !important;
+}
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Focus Visible
+   ══════════════════════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--blue-500);
+  outline-offset: 0;
+  border-color: var(--blue-500);
+}

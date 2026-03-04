@@ -10,6 +10,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import StatusBadge from "./StatusBadge";
 import ToolCallCard from "./ToolCallCard";
+import ConfirmDialog from "./ConfirmDialog";
 import useAgentChat from "../hooks/useAgentChat";
 
 interface Props {
@@ -81,6 +82,7 @@ export default function AgentChat({
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -122,7 +124,7 @@ export default function AgentChat({
 
   function handleDeleteConversation(e: React.MouseEvent, convId: number) {
     e.stopPropagation();
-    deleteConversation(convId);
+    setDeleteTarget(convId);
   }
 
   async function handleCopyMessage(msgId: number, content: string) {
@@ -159,6 +161,22 @@ export default function AgentChat({
 
   return (
     <div className="agent-layout">
+      {/* Confirm delete conversation */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Sterge conversatia"
+        message="Sigur doriti sa stergeti aceasta conversatie? Istoricul va fi pierdut."
+        confirmLabel="Sterge"
+        danger
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget !== null) {
+            deleteConversation(deleteTarget);
+            setDeleteTarget(null);
+          }
+        }}
+      />
+
       {/* Sidebar conversații */}
       <div className={`agent-sidebar ${sidebarOpen ? "open" : "closed"}`}>
         <div className="agent-sidebar-header">
@@ -166,7 +184,8 @@ export default function AgentChat({
           <button
             className="agent-sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={sidebarOpen ? "Ascunde sidebar" : "Arată sidebar"}
+            title={sidebarOpen ? "Ascunde sidebar" : "Arata sidebar"}
+            aria-label={sidebarOpen ? "Ascunde sidebar conversatii" : "Arata sidebar conversatii"}
           >
             {sidebarOpen ? "\u2039" : "\u203A"}
           </button>
@@ -203,6 +222,7 @@ export default function AgentChat({
                     className="agent-sidebar-item-delete"
                     onClick={(e) => handleDeleteConversation(e, c.id)}
                     title="Sterge conversatia"
+                    aria-label="Sterge aceasta conversatie"
                   >
                     &times;
                   </button>
@@ -227,7 +247,8 @@ export default function AgentChat({
             <button
               className="agent-sidebar-toggle-inline"
               onClick={() => setSidebarOpen(true)}
-              title="Arată conversatii"
+              title="Arata conversatii"
+              aria-label="Deschide panoul de conversatii"
             >
               Conversatii
             </button>
@@ -294,9 +315,10 @@ export default function AgentChat({
                     <button
                       className="chat-copy-btn"
                       onClick={() => handleCopyMessage(msg.id, msg.content)}
-                      title="Copiază mesajul"
+                      title="Copiaza mesajul"
+                      aria-label="Copiaza mesajul in clipboard"
                     >
-                      {copiedId === msg.id ? "✓ Copiat" : "Copiază"}
+                      {copiedId === msg.id ? "\u2713 Copiat" : "Copiaza"}
                     </button>
                   </div>
                 ) : msg.role === "system" ? (
